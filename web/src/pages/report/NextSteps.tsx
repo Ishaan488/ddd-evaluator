@@ -1,0 +1,98 @@
+import { Link } from 'react-router-dom';
+import type { RunDetail } from '@ddd/shared';
+import { Icon, type IconName } from '../../components/Icons';
+import { plural } from '../../copy';
+
+interface Step {
+  tone: 'red' | 'amber' | 'accent' | 'green';
+  icon: IconName;
+  title: string;
+  detail: string;
+  tab?: string;
+  cta?: string;
+}
+
+/** The answer to "what do I do now?", built from the report, with a way into each part of it. */
+export function NextSteps({ run, onGo }: { run: RunDetail; onGo: (tab: string) => void }) {
+  const report = run.report!;
+  const { verdict, pathToGreen } = report;
+  const pending = report.notMeasurable.filter((n) => !n.evidence);
+  const blocking = verdict.blockingFindings.length;
+  const failedGates = verdict.criticalGates.filter((g) => g.status === 'failed');
+  const steps: Step[] = [];
+
+  if (blocking > 0) {
+    steps.push({ tone: 'red', icon: 'alert', title: `Fix the ${plural(blocking, 'must-fix problem')}`, detail: 'These block green until they are fixed. They are marked “Must fix”.', tab: 'fix', cta: 'See them' });
+  }
+  if (failedGates.length > 0) {
+    steps.push({
+      tone: 'red', icon: 'flag',
+      title: `Raise ${failedGates.map((g) => g.name).join(' and ')} to 4 or more`,
+      detail: 'A must-pass check can never fail, however high the total score is.', tab: 'path', cta: 'See how',
+    });
+  }
+  const improvements = pathToGreen.steps.filter((s) => s.reason === 'score').slice(0, 2);
+  if (improvements.length > 0) {
+    steps.push({
+      tone: 'amber', icon: 'chart',
+      title: improvements.map((s) => `Improve “${s.name}” from ${s.from} to ${s.to}`).join(', then '),
+      detail: `That adds about ${improvements.reduce((n, s) => n + s.scoreGain, 0).toFixed(1)} points towards green.`, tab: 'path', cta: 'Full path',
+    });
+  }
+  if (pending.length > 0) {
+    steps.push({
+      tone: 'amber', icon: 'user',
+      title: `Record ${pending.map((p) => p.name).join(' and ')}`,
+      detail: 'Only a person can supply this, and the result cannot be green without it.', tab: 'input', cta: 'Add it',
+    });
+  }
+
+  const clear = steps.length === 0;
+  if (clear) {
+    steps.push({ tone: 'green', icon: 'check', title: 'Nothing left to fix', detail: 'A person confirms this result at the gate.' });
+  }
+
+  return (
+    <section className="card next" aria-labelledby="next-title">
+      <div className="card-head">
+        <h2 id="next-title">What to do next</h2>
+        {!clear && <span className="faint">{plural(steps.length, 'thing')} to do, in this order</span>}
+      </div>
+      <ol className="next-list">
+        {steps.map((step, i) => (
+          <li key={i} className={`next-step next-${step.tone}`}>
+            <span className="next-icon">
+              <Icon name={step.icon} size={18} />
+            </span>
+            <div className="next-body">
+              <div className="next-title">
+                {!clear && <span className="next-n">{i + 1}</span>}
+                {step.title}
+              </div>
+              <div className="next-detail">{step.detail}</div>
+            </div>
+            {step.tab && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => onGo(step.tab!)}>
+                {step.cta} <Icon name="arrow" size={14} />
+              </button>
+            )}
+          </li>
+        ))}
+        {!clear && (
+          <li className="next-step next-accent">
+            <span className="next-icon">
+              <Icon name="refresh" size={18} />
+            </span>
+            <div className="next-body">
+              <div className="next-title"><span className="next-n">{steps.length + 1}</span>Fix the file, then submit the next iteration</div>
+              <div className="next-detail">Each submission is scored on its own, so you can watch the score climb.</div>
+            </div>
+            <Link to={`/new?project=${encodeURIComponent(run.projectName)}`} className="btn btn-primary btn-sm">
+              Submit again <Icon name="arrow" size={14} />
+            </Link>
+          </li>
+        )}
+      </ol>
+    </section>
+  );
+}

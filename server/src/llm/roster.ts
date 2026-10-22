@@ -2,11 +2,23 @@ import type { ModelRef, RosterProblem } from '@ddd/shared';
 import type { ModelEntry, ModelsConfig } from '../config.js';
 import { UserError } from '../util/errors.js';
 
+export interface RosterFallback {
+  provider: string;
+  model: string;
+  maxInputTokens?: number;
+  keyPresent: boolean;
+  approved: boolean;
+}
+
 export interface RosterMember extends ModelRef {
   keyPresent: boolean;
   approved: boolean;
   maxInputTokens?: number;
+  fallbacks: RosterFallback[];
 }
+
+/** The fallbacks that may actually be used: approved to receive documents, and with a key. */
+export const usableFallbacks = (m: RosterMember): RosterFallback[] => m.fallbacks.filter((f) => f.approved && f.keyPresent);
 
 export interface RosterStatus {
   raters: RosterMember[];
@@ -15,16 +27,31 @@ export interface RosterStatus {
   ready: boolean;
 }
 
-function isApproved(models: ModelsConfig, entry: ModelEntry): boolean {
+function isApproved(models: ModelsConfig, entry: { provider: string; model: string }): boolean {
   return models.approved.some(
     (rule) => rule === `${entry.provider}:${entry.model}` || rule === `${entry.provider}:*`,
   );
 }
 
+function hasKey(models: ModelsConfig, providerName: string, env: NodeJS.ProcessEnv): boolean {
+  const provider = models.providers[providerName];
+  return provider?.type === 'mock' || Boolean(provider?.keyEnv && env[provider.keyEnv]);
+}
+
 function member(models: ModelsConfig, entry: ModelEntry, env: NodeJS.ProcessEnv): RosterMember {
-  const provider = models.providers[entry.provider];
-  const keyPresent = provider?.type === 'mock' || Boolean(provider?.keyEnv && env[provider.keyEnv]);
-  return { ...entry, keyPresent, approved: isApproved(models, entry) };
+  const { fallbacks = [], ...rest } = entry;
+  return {
+    ...rest,
+    keyPresent: hasKey(models, entry.provider, env),
+    approved: isApproved(models, entry),
+    fallbacks: fallbacks.map((f) => ({
+      provider: f.provider,
+      model: f.model,
+      maxInputTokens: f.maxInputTokens,
+      keyPresent: hasKey(models, f.provider, env),
+      approved: isApproved(models, f),
+    })),
+  };
 }
 
 /**
@@ -49,6 +76,16 @@ export function inspectRoster(models: ModelsConfig, env: NodeJS.ProcessEnv = pro
     if (!spec) error(`Model ${label} uses a provider that is not configured.`);
     else if (!m.keyPresent) error(`Model ${label} has no API key. Set ${spec.keyEnv} in .env.`);
     if (!m.approved) error(`Model ${label} is not on the approved list, so it may not receive project documents.`);
+
+    // A fallback only ever receives documents when the primary fails, so an unapproved one is refused up front.
+    for (const f of m.fallbacks) {
+      const fallbackLabel = `Fallback ${f.provider}:${f.model} for ${m.id}`;
+      if (!models.providers[f.provider]) error(`${fallbackLabel} uses a provider that is not configured.`);
+      else if (!f.keyPresent) {
+        problems.push({ level: 'warning', message: `${fallbackLabel} has no API key and will be skipped.` });
+      }
+      if (!f.approved) error(`${fallbackLabel} is not on the approved list, so it may not receive project documents.`);
+    }
   }
 
   if (raters.some((r) => r.family === consolidator.family)) {

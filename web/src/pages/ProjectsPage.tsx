@@ -22,7 +22,7 @@ function LatestChip({ project }: { project: ProjectSummary }) {
   const latest = project.latest;
   if (!latest) return <span className="faint">—</span>;
   if (latest.status === 'failed') return <Chip tone="red">Failed</Chip>;
-  if (latest.status !== 'done') return <Chip tone="accent">Running</Chip>;
+  if (latest.status !== 'done') return <Chip tone="accent">In progress</Chip>;
   return <DecisionChip decision={latest.finalDecision} size="sm" />;
 }
 
@@ -76,7 +76,7 @@ export function ProjectsPage() {
         <Card>
           <EmptyState
             icon="chart"
-            title="No evaluations yet"
+            title="Nothing checked yet"
             action={
               <Link to="/new" className="btn btn-primary">
                 <Icon name="plus" /> Evaluate your first schema
@@ -93,9 +93,9 @@ export function ProjectsPage() {
         <>
           <div className="stats">
             <Stat label="Projects" value={list.length} hint="schemas being tracked" />
-            <Stat label="Evaluations" value={evaluations} hint="iterations scored so far" />
-            <Stat label="Green" value={green} hint="latest iteration passes" />
-            <Stat label="Needs attention" value={attention} hint="amber or red, waiting on a fix" />
+            <Stat label="Checks" value={evaluations} hint="rounds marked so far" />
+            <Stat label="Green" value={green} hint="latest round passed" />
+            <Stat label="Needs attention" value={attention} hint="still need a fix" />
           </div>
 
           <Card flush>
@@ -104,10 +104,10 @@ export function ProjectsPage() {
               <thead>
                 <tr>
                   <th>Project</th>
-                  <th>Latest verdict</th>
+                  <th>Latest result</th>
                   <th className="num">Score</th>
                   <th>Trend</th>
-                  <th className="num">Iterations</th>
+                  <th className="num">Rounds</th>
                   <th>Scorecard</th>
                   <th>Updated</th>
                 </tr>

@@ -3,7 +3,8 @@
     "groq:openai/gpt-oss-120b",
     "groq:openai/gpt-oss-20b",
     "groq:qwen/qwen3.8-27b",
-    "gemini:gemini-3.5-flash"
+    "gemini:gemini-3.5-flash",
+    "gemini:gemini-3.1-flash-lite"
   ],
   "providers": {
     "groq": {
@@ -31,19 +32,27 @@
       "id": "A",
       "provider": "groq",
       "model": "openai/gpt-oss-120b",
-      "family": "openai"
+      "family": "openai",
+      "maxInputTokens": 8000
     },
     {
       "id": "B",
       "provider": "gemini",
       "model": "gemini-3.5-flash",
-      "family": "google"
+      "family": "google",
+      "fallbacks": [
+        {
+          "provider": "gemini",
+          "model": "gemini-3.1-flash-lite"
+        }
+      ]
     },
     {
       "id": "C",
       "provider": "groq",
       "model": "qwen/qwen3.8-27b",
-      "family": "alibaba"
+      "family": "alibaba",
+      "maxInputTokens": 7000
     }
   ],
   "consolidator": {
@@ -56,6 +65,6 @@
     "temperature": 0,
     "maxOutputTokens": 8192,
     "timeoutMs": 120000,
-    "retries": 3
+    "retries": 5
   }
 }

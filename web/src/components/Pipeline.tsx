@@ -1,14 +1,9 @@
 import type { ParticipantProgress, RunDetail, RunStage } from '@ddd/shared';
 import { STATUS_LABEL, formatDuration } from '../format';
+import { STAGES } from '../copy';
 import { Icon } from './Icons';
 
-const STEPS: Array<{ stage: RunStage; title: string; detail: string }> = [
-  { stage: 'reading', title: 'Freeze the inputs', detail: 'Read the workbook and scorecard, and hash both' },
-  { stage: 'checks', title: 'Count in code', detail: 'Exact checks on the countable dimensions' },
-  { stage: 'rating', title: 'Three raters score', detail: 'Blind, from three model families' },
-  { stage: 'consolidating', title: 'Consolidate', detail: 'A fourth model reconciles the scores' },
-  { stage: 'reporting', title: 'Decide and report', detail: 'Verdict by rule, then the eight-section report' },
-];
+const STEPS = STAGES;
 
 const ORDER: RunStage[] = ['queued', 'reading', 'checks', 'rating', 'consolidating', 'reporting', 'done'];
 

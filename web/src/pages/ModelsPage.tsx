@@ -20,6 +20,16 @@ function ModelCard({ member, role }: { member: Member; role: string }) {
         <span className="sep">·</span>
         <span>family: {member.family}</span>
       </div>
+      {member.fallbacks.length > 0 && (
+        <div className="model-fallbacks">
+          <span className="model-fallbacks-label">If it fails, tries</span>
+          {member.fallbacks.map((f) => (
+            <span key={`${f.provider}/${f.model}`} className={f.keyPresent && f.approved ? '' : 'down'}>
+              {f.provider}/{f.model}{!f.keyPresent ? ' (no key)' : !f.approved ? ' (not approved)' : ''}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="model-chips">
         <Chip tone={member.keyPresent ? 'green' : 'red'}>{member.keyPresent ? 'API key set' : 'No API key'}</Chip>
         <Chip tone={member.approved ? 'green' : 'red'}>{member.approved ? 'Approved' : 'Not approved'}</Chip>
@@ -44,7 +54,7 @@ export function ModelsPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Configuration" title="Evaluator models">
+      <PageHeader eyebrow="Configuration" title="AI examiners">
         The 3 + 1 roster used for every evaluation. Models and keys are set on the server, never in the browser.
       </PageHeader>
 
@@ -66,7 +76,7 @@ export function ModelsPage() {
             </div>
           )}
 
-          <Card title="Three raters" aside={<span className="faint">Score independently · different families</span>}>
+          <Card title="Three examiners" aside={<span className="faint">Score independently · different families</span>}>
             <div className="models">
               {c.raters.map((m) => (
                 <ModelCard key={m.id} member={m} role={`Rater ${m.id}`} />
@@ -74,13 +84,13 @@ export function ModelsPage() {
             </div>
           </Card>
 
-          <Card title="One consolidator" aside={<span className="faint">Reconciles, does not re-rate</span>}>
+          <Card title="One final reviewer" aside={<span className="faint">Compares their marks, does not mark again</span>}>
             <div className="models models-one">
               <ModelCard member={c.consolidator} role="Consolidator" />
             </div>
           </Card>
 
-          <Card title="How the roster is held to the PDF">
+          <Card title="Safeguards">
             <dl className="rules">
               {RULES.map(([term, body]) => (
                 <div key={term} className="rule">

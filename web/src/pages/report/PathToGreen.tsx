@@ -13,11 +13,11 @@ export function PathToGreen({ path }: { path: Path }) {
               <div className="path-body">
                 <div className="path-title">
                   <span className="mono faint">{s.dimensionId}</span> {s.name}
-                  {s.reason === 'critical gate' && <span className="crit" title="Unblocks a critical gate">★</span>}
+                  {s.reason === 'critical gate' && <span className="crit" title="Unblocks a must-pass check">★</span>}
                 </div>
                 <div className="path-sub">
-                  {s.reason === 'critical gate' ? 'Blocks green: a critical gate needs 4 or more.' : 'Adds the most weighted score for the effort.'}
-                  {s.findingIds.length > 0 && <> Fixes <span className="mono">{s.findingIds.join(', ')}</span>.</>}
+                  {s.reason === 'critical gate' ? 'Stops it being green: a must-pass check needs 4 or more.' : 'Adds the most points for the least effort.'}
+                  {s.findingIds.length > 0 && <> Also fixes <span className="mono">{s.findingIds.join(', ')}</span>.</>}
                 </div>
               </div>
               <span className="path-move mono">
@@ -33,10 +33,10 @@ export function PathToGreen({ path }: { path: Path }) {
         <div className="path-person path-block">
           <Icon name="flag" />
           <div>
-            <strong>High-risk findings must be fixed before resubmission</strong>
+            <strong>Fix these must-fix problems before you submit again</strong>
             <p className="path-block-ids">
               {path.blockingFindingIds.map((id) => (
-                <a key={id} className="mono finding-link" href="#findings">{id}</a>
+                <a key={id} className="mono finding-link" href="#fix">{id}</a>
               ))}
             </p>
           </div>
@@ -47,7 +47,7 @@ export function PathToGreen({ path }: { path: Path }) {
         <div className="path-person">
           <Icon name="user" />
           <div>
-            <strong>A person must also supply</strong>
+            <strong>A person also has to supply</strong>
             <ul>
               {path.needsPerson.map((n) => (
                 <li key={n}>{n}</li>
@@ -61,7 +61,7 @@ export function PathToGreen({ path }: { path: Path }) {
         <span>{path.note}</span>
         {(path.steps.length > 0 || path.blockingFindingIds.length > 0) && (
           <span className="path-outcome">
-            Result <span className="mono">{path.resultingScore.toFixed(1)}</span> <DecisionChip decision={path.resultingDecision} size="sm" />
+            Expected result <span className="mono">{path.resultingScore.toFixed(1)}</span> <DecisionChip decision={path.resultingDecision} size="sm" />
           </span>
         )}
       </div>

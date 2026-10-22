@@ -30,13 +30,16 @@ describe('what the raters are sent', () => {
     expect(scorecard.artifact.sheets).toEqual([{ name: 'T', headerRow: 2, columns: ['a', 'b'] }, { name: 'U', headerRow: 1 }]);
   });
 
-  it('keeps the Talentra prompts small enough to leave room on a paid Groq tier (regression guard)', async () => {
+  it('keeps the Talentra prompts to the sizes measured on a real provider (regression guard)', async () => {
     const schema = parseScorecard(await readFile(new URL('../../samples/talentra/talentra-schema-d2.yaml', import.meta.url), 'utf8'));
     const output = parseScorecard(await readFile(new URL('../../samples/talentra/talentra-step04-d4.yaml', import.meta.url), 'utf8'));
     const [d2, d4] = await Promise.all([runEvaluation({ workbook: TALENTRA_XLSX, scorecard: schema }), runEvaluation({ workbook: TALENTRA_XLSX, scorecard: output })]);
     const tokens = (run: typeof d2) => estimateTokens(run.calls[0]!.prompt);
-    expect(tokens(d2)).toBeLessThan(14_500);
-    expect(tokens(d4)).toBeLessThan(5_000);
+    // Groq counted this exact schema prompt at 18,336 tokens (gpt-oss) and 21,482 (qwen), so the estimate must not fall below the
+    // first, nor drift far above the second.
+    expect(tokens(d2)).toBeGreaterThanOrEqual(18_336);
+    expect(tokens(d2)).toBeLessThan(22_500);
+    expect(tokens(d4)).toBeLessThan(7_500);
   });
 
   it('fails a rater early, with advice, when its prompt cannot fit the limit set for it', async () => {

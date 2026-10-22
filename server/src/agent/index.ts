@@ -7,6 +7,7 @@
  *   evaluate()            run one evaluation: freeze, count, rate x3, consolidate, decide
  *   buildVerdictSection() the green / amber / red rule, applied to stored scores
  *   buildPathToGreen()    the smallest set of fixes that would change the verdict
+ *   preflight()           before running: can enough raters take the prompt? (measures the real prompt)
  *   PROMPT_VERSION        version of the rater and consolidator prompts
  *
  * Start reading at orchestrator.ts; docs/agent.md walks through it.
@@ -15,4 +16,6 @@ export { evaluate } from './orchestrator.js';
 export type { EvaluateArgs, EvaluationOutput, ProgressEvent } from './orchestrator.js';
 export { buildVerdictSection } from './verdict.js';
 export { buildPathToGreen } from './pathToGreen.js';
+export { preflight, MIN_RATERS } from './preflight.js';
+export type { PreflightResult, RaterLimit } from './preflight.js';
 export { PROMPT_VERSION } from './prompts/rater.js';

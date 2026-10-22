@@ -3,6 +3,13 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { z } from 'zod';
 
+/** A backup for a model. It answers as the same participant and counts as the same family, so independence is kept. */
+const fallbackSchema = z.object({
+  provider: z.string().min(1),
+  model: z.string().min(1),
+  maxInputTokens: z.number().int().positive().optional(),
+});
+
 const modelEntrySchema = z.object({
   id: z.string().min(1),
   provider: z.string().min(1),
@@ -10,6 +17,8 @@ const modelEntrySchema = z.object({
   family: z.string().min(1),
   /** Optional ceiling on the prompt (about 4 characters per token). A prompt over it fails early, with advice. */
   maxInputTokens: z.number().int().positive().optional(),
+  /** Tried in order if this model fails for any reason (overload, rate limit, prompt too large). Must be the same model family. */
+  fallbacks: z.array(fallbackSchema).optional(),
 });
 
 const providerSchema = z.object({
@@ -36,6 +45,7 @@ export const modelsConfigSchema = z.object({
 
 export type ModelsConfig = z.infer<typeof modelsConfigSchema>;
 export type ModelEntry = z.infer<typeof modelEntrySchema>;
+export type FallbackEntry = z.infer<typeof fallbackSchema>;
 export type ProviderSpec = z.infer<typeof providerSchema>;
 
 export interface AppConfig {

@@ -43,7 +43,7 @@ step, not software).
 |---|---|---|---|
 | 01 | Proven before automated | Process | Applies to when to adopt, not to the code |
 | 02 | Evaluate before generate | Done | Level 1 only: no generators exist |
-| 03 | Independent by design | Done | `llm/roster.ts` refuses a roster without three distinct families; the evaluator never edits or runs in the author's session |
+| 03 | Independent by design | Done | `llm/roster.ts` refuses a roster without three distinct families; a fallback model answers as the same participant and counts as the same family, so this holds when a model fails over (`agent/fallback.ts`); the evaluator never edits or runs in the author's session |
 | 04 | Evidence, not opinion | Done | `agent/evidence.ts`: a score or finding must cite a real cell; otherwise discarded |
 | 05 | People own the judgement | Partial | Human evidence, overrides with a reason, and "needs a person" flags are built; a rule that a person *must* review every amber or red is not enforced by the software |
 | 06 | Everything is logged | Done | Prompts, raw replies, models, hashes, scores, discards, evidence and overrides stored (`model_calls`, `runs.run_log`, ...) |

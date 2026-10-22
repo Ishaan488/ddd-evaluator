@@ -11,6 +11,20 @@ export interface HttpOptions {
 const RETRYABLE = new Set([408, 429, 500, 502, 503, 504]);
 const MAX_WAIT_MS = 30_000;
 
+/** Providers wrap the useful sentence in JSON; show the sentence, not the braces. */
+export function errorDetail(body: string): string {
+  try {
+    const parsed = JSON.parse(body) as { error?: { message?: unknown } | string; message?: unknown } | Array<{ error?: { message?: unknown } }>;
+    const first = Array.isArray(parsed) ? parsed[0] : parsed;
+    const nested = typeof first?.error === 'string' ? first.error : (first?.error as { message?: unknown } | undefined)?.message;
+    const message = nested ?? (first as { message?: unknown } | undefined)?.message;
+    if (typeof message === 'string' && message.trim()) return message.replace(/\s+/g, ' ').trim();
+  } catch {
+    /* not JSON: fall through to the raw text */
+  }
+  return body.replace(/\s+/g, ' ').trim();
+}
+
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 function waitTime(attempt: number, retryAfter: string | null): number {
@@ -48,7 +62,7 @@ export async function postJson(
         }
       }
       retryAfter = response.headers.get('retry-after');
-      lastError = new LlmError(`HTTP ${response.status}: ${text.slice(0, 400)}`, response.status);
+      lastError = new LlmError(`HTTP ${response.status}: ${errorDetail(text).slice(0, 500)}`, response.status);
       if (!RETRYABLE.has(response.status)) throw lastError;
     } catch (error) {
       if (error instanceof LlmError && !RETRYABLE.has(error.status ?? 0)) throw error;

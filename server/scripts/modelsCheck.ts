@@ -16,12 +16,17 @@ const config = loadAppConfig({ ...process.env, MOCK_LLM: '' });
 const models = config.models;
 const roster = inspectRoster(models, process.env);
 const members = [...roster.raters, roster.consolidator];
+// Fallbacks answer as their participant, so they are checked like any other model.
+const entries = members.flatMap((m) => [
+  { label: m.id, provider: m.provider, model: m.model, family: m.family, keyPresent: m.keyPresent, approved: m.approved },
+  ...m.fallbacks.map((f) => ({ label: `${m.id} fallback`, provider: f.provider, model: f.model, family: m.family, keyPresent: f.keyPresent, approved: f.approved })),
+]);
 let failed = false;
 
 console.log('Roster');
-for (const m of members) {
+for (const m of entries) {
   const issues = [!m.keyPresent && 'no API key', !m.approved && 'not on the approved list'].filter(Boolean);
-  console.log(`  ${m.id}  ${m.provider}/${m.model}  (${m.family})  ${issues.length ? `✗ ${issues.join(', ')}` : '✓ key set, approved'}`);
+  console.log(`  ${m.label.padEnd(13)} ${m.provider}/${m.model}  (${m.family})  ${issues.length ? `✗ ${issues.join(', ')}` : '✓ key set, approved'}`);
   if (issues.length) failed = true;
 }
 for (const p of roster.problems.filter((p) => p.level === 'error' && /families|unique/.test(p.message))) {
@@ -29,7 +34,7 @@ for (const p of roster.problems.filter((p) => p.level === 'error' && /families|u
   failed = true;
 }
 
-const providersUsed = [...new Set(members.map((m) => m.provider))];
+const providersUsed = [...new Set(entries.map((m) => m.provider))];
 for (const name of providersUsed) {
   const spec = models.providers[name];
   const key = spec?.keyEnv ? process.env[spec.keyEnv] : undefined;
@@ -41,7 +46,7 @@ for (const name of providersUsed) {
     const response = await fetch(request.url, { headers: request.headers, signal: AbortSignal.timeout(20_000) });
     if (!response.ok) throw new Error(`HTTP ${response.status} ${(await response.text()).slice(0, 200)}`);
     const offered = parseModelList(spec.type as 'openai-compatible' | 'gemini', await response.json());
-    for (const m of members.filter((x) => x.provider === name)) {
+    for (const m of entries.filter((x) => x.provider === name)) {
       const found = offered.includes(m.model);
       console.log(`  ${found ? '✓' : '✗'} ${m.model}${found ? '' : '  <- not offered. Pick one below and edit server/config/models.json'}`);
       if (!found) failed = true;
@@ -56,7 +61,7 @@ for (const name of providersUsed) {
 if (values.ping && roster.ready) {
   console.log('\nPing');
   const providers = createProviderFactory(models);
-  for (const m of members) {
+  for (const m of entries) {
     const started = Date.now();
     try {
       const reply = await providers(m.provider).complete({
@@ -66,9 +71,9 @@ if (values.ping && roster.ready) {
         temperature: 0,
         maxOutputTokens: 1024,
       });
-      console.log(`  ✓ ${m.id} ${m.provider}/${m.model}  ${Date.now() - started} ms  ${reply.text.replace(/\s+/g, ' ').slice(0, 60)}`);
+      console.log(`  ✓ ${m.label} ${m.provider}/${m.model}  ${Date.now() - started} ms  ${reply.text.replace(/\s+/g, ' ').slice(0, 60)}`);
     } catch (error) {
-      console.log(`  ✗ ${m.id} ${m.provider}/${m.model}  ${(error as Error).message}`);
+      console.log(`  ✗ ${m.label} ${m.provider}/${m.model}  ${(error as Error).message}`);
       failed = true;
     }
   }

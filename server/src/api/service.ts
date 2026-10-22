@@ -4,10 +4,10 @@ import path from 'node:path';
 import type { ParticipantProgress, RunProgress } from '@ddd/shared';
 import type { AppConfig } from '../config.js';
 import type { Store } from '../db/store.js';
-import { evaluate, type ProgressEvent } from '../agent/index.js';
+import { evaluate, preflight, type ProgressEvent } from '../agent/index.js';
 import { serializeSheets } from '../excel/serialize.js';
 import { WorkbookModel } from '../excel/workbook.js';
-import { assertRosterReady, inspectRoster } from '../llm/roster.js';
+import { assertRosterReady, inspectRoster, usableFallbacks } from '../llm/roster.js';
 import type { ProviderFactory } from '../llm/registry.js';
 import { parseScorecardFile } from '../scorecard/parse.js';
 import { sha256 } from '../util/hash.js';
@@ -64,6 +64,16 @@ export class EvaluationService {
 
     // Column lists are checked now too, so a typo comes back as an error, not as a failed run.
     serializeSheets(wb, [...scorecard.artifact.sheets, ...scorecard.artifact.context]);
+
+    // Refuse now, in plain words, an evaluation that most of the raters could not take, instead of failing three calls later.
+    const fit = preflight({
+      scorecard, wb, sources: input.sources, instructions,
+      raters: roster.raters.map((r) => ({
+        id: r.id, model: r.model, maxInputTokens: r.maxInputTokens,
+        fallbackLimits: usableFallbacks(r).map((f) => f.maxInputTokens),
+      })),
+    });
+    if (!fit.ok) throw new UserError(fit.problem!, 409);
 
     const runId = randomUUID();
     const name = safeName(input.workbook.name);
@@ -126,6 +136,8 @@ export class EvaluationService {
       const participant = progress.participants.find((p) => p.id === event.id);
       if (!participant) return;
       participant.status = event.status;
+      if (event.provider) participant.provider = event.provider;
+      if (event.model) participant.model = event.model;
       participant.error = event.error;
       participant.latencyMs = event.latencyMs;
       persist(() => store.setProgress(runId, progress));

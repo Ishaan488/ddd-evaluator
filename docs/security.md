@@ -37,7 +37,7 @@ only to approved models.
 
 | Control | Detail |
 |---|---|
-| **Approved list** | A model not in `approved` in `models.json` is refused before anything is sent (`llm/roster.ts`) |
+| **Approved list** | A model not in `approved` in `models.json` is refused before anything is sent (`llm/roster.ts`). This covers **fallback models** too: one that is not approved makes the roster not ready, because a fallback receives the documents when the primary fails |
 | **Keys** | Read from the server environment only. Never stored in the database, never logged, never in an API response (`/api/config` says only whether a key is set). Gemini's key is sent in a header, not the URL, so it cannot leak into logs |
 | **Independence** | Three distinct families, so one provider's mistake or compromise cannot decide a verdict alone |
 | **Minimum necessary** | `columns` in a scorecard limits what raters are sent; sheets not listed are never sent |

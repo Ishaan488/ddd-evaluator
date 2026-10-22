@@ -4,6 +4,7 @@ import { api } from '../api';
 import { Chip, DecisionChip } from '../components/Chip';
 import { Icon } from '../components/Icons';
 import { Card, ErrorBanner, Loading, PageHeader } from '../components/Layout';
+import { Menu } from '../components/Menu';
 import { Pipeline } from '../components/Pipeline';
 import { formatDate } from '../format';
 import { useDocumentTitle, useResource } from '../hooks';
@@ -33,18 +34,22 @@ export function RunPage() {
           <span className="title-row">
             Iteration v{r.iteration}
             {r.status === 'done' && <DecisionChip decision={r.finalDecision} size="md" />}
-            {isLive(r) && <Chip tone="accent">Running</Chip>}
+            {isLive(r) && <Chip tone="accent">In progress</Chip>}
             {r.status === 'failed' && <Chip tone="red">Failed</Chip>}
           </span>
         }
         actions={
           <>
             {r.status === 'done' && (
-              <div className="btn-group">
-                <a className="btn btn-secondary" href={api.reportUrl(r.id, 'xlsx')}><Icon name="download" /> Excel</a>
-                <a className="btn btn-secondary" href={api.reportUrl(r.id, 'md')}>Markdown</a>
-                <a className="btn btn-secondary" href={api.reportUrl(r.id, 'json')}>JSON</a>
-              </div>
+              <Menu
+                label="Download report"
+                icon="download"
+                items={[
+                  { label: 'Excel', hint: 'The full eight-section report', href: api.reportUrl(r.id, 'xlsx'), icon: 'sheet' },
+                  { label: 'Markdown', hint: 'Easy to read and paste', href: api.reportUrl(r.id, 'md'), icon: 'copy' },
+                  { label: 'JSON', hint: 'For other programs', href: api.reportUrl(r.id, 'json'), icon: 'info' },
+                ]}
+              />
             )}
             <Link to={`/new?project=${encodeURIComponent(r.projectName)}`} className="btn btn-primary">
               <Icon name="refresh" /> {r.status === 'failed' ? 'Submit again' : 'Next iteration'}
@@ -52,18 +57,23 @@ export function RunPage() {
           </>
         }
       >
-        <span className="mono">{r.artifactName}</span> · {r.scorecardId} · {r.gate === 'D3' ? 'output document' : 'schema design'} · {formatDate(r.createdAt)}
+        <div className="meta-row">
+          <span className="meta"><Icon name="sheet" size={14} /> {r.artifactName}</span>
+          <span className="meta"><Icon name="scale" size={14} /> {r.scorecardId}</span>
+          <span className="meta"><Icon name="info" size={14} /> {r.gate === 'D3' ? 'Output document' : 'Schema design'}</span>
+          <span className="meta"><Icon name="clock" size={14} /> {formatDate(r.createdAt)}</span>
+        </div>
       </PageHeader>
 
       {r.status === 'failed' && (
         <div className="banner banner-red" role="alert">
           <Icon name="alert" />
-          <span><strong>This evaluation could not finish.</strong> {r.error}</span>
+          <span><strong>This check could not finish.</strong> {r.error}</span>
         </div>
       )}
 
       {r.status !== 'done' && (
-        <Card title={isLive(r) ? 'Evaluating' : 'Where it stopped'} aside={isLive(r) ? <span className="faint">Updates live</span> : undefined}>
+        <Card title={isLive(r) ? 'Working on it' : 'Where it stopped'} aside={isLive(r) ? <span className="faint">Updates live</span> : undefined}>
           <Pipeline run={r} />
         </Card>
       )}

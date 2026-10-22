@@ -1,31 +1,24 @@
 import type { Report } from '@ddd/shared';
 import { Chip } from '../../components/Chip';
-
-const LABEL = {
-  agreement: 'Agreed',
-  claims_checked: 'Claims checked',
-  lower_stands: 'Lower stands',
-  single_rater: 'One rater',
-  code: 'Code',
-  none: '—',
-} as const;
+import { Hint } from '../../components/Hint';
+import { RESOLUTION, TERMS } from '../../copy';
 
 export function AgreementTable({ report }: { report: Report }) {
   const raters = report.header.raters;
   if (report.agreement.length === 0) {
-    return <p className="muted pad">This scorecard has no rater dimensions, so there is nothing for raters to agree on.</p>;
+    return <p className="muted pad">This scorecard has no rater dimensions, so there is nothing for the examiners to agree on.</p>;
   }
   return (
     <div className="table-scroll">
       <table className="table">
         <thead>
           <tr>
-            <th>Dimension</th>
+            <th>Criterion</th>
             {raters.map((r) => (
-              <th key={r.id} className="num" title={`${r.provider}/${r.model}`}>{r.id}</th>
+              <th key={r.id} className="num" title={`${r.provider}/${r.model}`}>Examiner {r.id}</th>
             ))}
-            <th className="num">Spread</th>
-            <th>Resolution</th>
+            <th className="num">Disagreement <Hint text={TERMS.disagreement.help} /></th>
+            <th>Outcome</th>
             <th>What happened</th>
           </tr>
         </thead>
@@ -38,9 +31,9 @@ export function AgreementTable({ report }: { report: Report }) {
               ))}
               <td className="num mono"><span className={a.spread !== null && a.spread > 1 ? 'down' : ''}>{a.spread ?? '—'}</span></td>
               <td>
-                <Chip tone={a.flagged ? 'amber' : a.resolution === 'agreement' ? 'green' : 'muted'}>{LABEL[a.resolution]}</Chip>
+                <Chip tone={a.flagged ? 'amber' : RESOLUTION[a.resolution].tone}>{RESOLUTION[a.resolution].label}</Chip>
               </td>
-              <td className="muted">{a.note}{a.flagged && <strong className="flagged"> Flagged for a person.</strong>}</td>
+              <td className="muted">{a.note}{a.flagged && <strong className="flagged"> Please take a look.</strong>}</td>
             </tr>
           ))}
         </tbody>

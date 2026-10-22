@@ -1,31 +1,32 @@
 import { Fragment, useState } from 'react';
-import type { DimensionResult, Report } from '@ddd/shared';
-import { ByChip, CellChip, Chip } from '../../components/Chip';
+import type { DimensionResult, MeasuredBy, Report } from '@ddd/shared';
+import { CellChip, Chip } from '../../components/Chip';
+import { Hint } from '../../components/Hint';
+import { Icon } from '../../components/Icons';
+import { METHOD, TERMS, statusOf } from '../../copy';
+
+const tone = (score: number | null) => (score === null ? 'none' : score >= 4 ? 'hi' : score >= 3 ? 'mid' : 'lo');
 
 function ScoreBar({ score }: { score: number | null }) {
   if (score === null) return <span className="faint">—</span>;
   return (
-    <span className="scorebar" title={`${score} of 5`}>
+    <span className="scorebar" title={`${score} out of 5`}>
       <span className="scorebar-segs">
         {[1, 2, 3, 4, 5].map((n) => (
-          <i key={n} className={n <= score ? `seg seg-on seg-${score >= 4 ? 'hi' : score >= 3 ? 'mid' : 'lo'}` : 'seg'} />
+          <i key={n} className={n <= score ? `seg seg-on seg-${tone(score)}` : 'seg'} />
         ))}
       </span>
-      <span className="mono">{score}</span>
+      <span className={`score-num score-${tone(score)}`}>{score}</span>
     </span>
   );
 }
 
-function StatusCell({ dim }: { dim: DimensionResult }) {
-  if (dim.status === 'unscored') return <Chip tone="red">Unscored</Chip>;
-  if (dim.status === 'not_measurable') return <Chip tone="amber">Needs a person</Chip>;
-  if (dim.flagged) return <Chip tone="amber">Flagged</Chip>;
-  return <span className="faint">{dim.measuredBy === 'code' ? 'Counted' : 'Reconciled'}</span>;
-}
+const GROUPS: MeasuredBy[] = ['code', 'raters', 'human'];
 
 export function ScoresTable({ report }: { report: Report }) {
   const [open, setOpen] = useState<Set<string>>(new Set());
-  const raterIds = report.header.raters.map((r) => r.id);
+  const raters = report.header.raters;
+  const columns = raters.length + 5;
 
   const toggle = (id: string) =>
     setOpen((current) => {
@@ -40,68 +41,85 @@ export function ScoresTable({ report }: { report: Report }) {
       <table className="table scores">
         <thead>
           <tr>
-            <th>Dimension</th>
-            <th className="num">Weight</th>
-            {raterIds.map((id) => (
-              <th key={id} className="num" title={report.header.raters.find((r) => r.id === id)?.model}>{id}</th>
+            <th>Criterion</th>
+            <th className="num">Importance <Hint text={TERMS.importance.help} /></th>
+            {raters.map((r) => (
+              <th key={r.id} className="num" title={`${r.provider}/${r.model}`}>Examiner {r.id}</th>
             ))}
-            <th>Score</th>
-            <th className="num">Spread</th>
+            <th>Final score <Hint text={TERMS.score.help} /></th>
+            <th className="num">Disagreement <Hint text={TERMS.disagreement.help} align="right" /></th>
             <th>Status</th>
           </tr>
         </thead>
-        <tbody>
-          {report.dimensions.map((d) => {
-            const expanded = open.has(d.id);
-            const detail = d.rationale || d.evidence.length > 0 || d.codeDetail;
-            return (
-              <Fragment key={d.id}>
-                <tr className={`${detail ? 'clickable' : ''} ${expanded ? 'row-open' : ''}`} onClick={() => detail && toggle(d.id)}>
-                  <td>
-                    <div className="dim">
-                      <span className="mono faint dim-id">{d.id}</span>
-                      <span className="dim-main">
-                        <span className="dim-name">{d.name}</span>
-                        {d.critical && <span className="crit" title="Critical gate: needs 4 or more">★</span>}
-                        <ByChip by={d.measuredBy} />
-                      </span>
-                    </div>
-                  </td>
-                  <td className="num faint">{d.weight}</td>
-                  {raterIds.map((id) => (
-                    <td key={id} className="num mono">{d.measuredBy === 'raters' ? (d.raterScores[id] ?? '—') : <span className="faint">·</span>}</td>
-                  ))}
-                  <td><ScoreBar score={d.consolidated} /></td>
-                  <td className="num mono">{d.spread === null ? <span className="faint">—</span> : d.spread}</td>
-                  <td><StatusCell dim={d} /></td>
-                </tr>
-                {expanded && (
-                  <tr className="row-detail">
-                    <td colSpan={raterIds.length + 5}>
-                      <div className="detail">
-                        {d.codeDetail && <p><strong>Counted:</strong> {d.codeDetail.summary}.</p>}
-                        {d.rationale && <p>{d.rationale}</p>}
-                        {d.error && <p className="down">{d.error}</p>}
-                        {d.evidence.length > 0 && (
-                          <p className="detail-evidence">
-                            <span className="faint">Evidence</span>
-                            {d.evidence.map((e, i) => (
-                              <span key={i} className="evidence">
-                                <CellChip sheet={e.sheet} cell={e.cell} />
-                                {e.quote && <q>{e.quote}</q>}
-                              </span>
-                            ))}
-                          </p>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-            );
-          })}
-        </tbody>
+        {GROUPS.map((group) => {
+          const rows = report.dimensions.filter((d) => d.measuredBy === group);
+          if (rows.length === 0) return null;
+          return (
+            <tbody key={group} className={`group group-${group}`}>
+              <tr className="group-row">
+                <th colSpan={columns} scope="colgroup">
+                  <span className="group-title">{METHOD[group].group}</span>
+                  <span className="chip chip-sm chip-muted">{rows.length}</span>
+                  <span className="group-blurb">{METHOD[group].blurb}</span>
+                </th>
+              </tr>
+              {rows.map((d) => (
+                <Row key={d.id} d={d} raters={raters} columns={columns} expanded={open.has(d.id)} onToggle={() => toggle(d.id)} />
+              ))}
+            </tbody>
+          );
+        })}
       </table>
     </div>
+  );
+}
+
+function Row({ d, raters, columns, expanded, onToggle }: { d: DimensionResult; raters: Report['header']['raters']; columns: number; expanded: boolean; onToggle: () => void }) {
+  const detail = Boolean(d.rationale || d.evidence.length > 0 || d.codeDetail || d.error);
+  const status = statusOf(d);
+  return (
+    <Fragment>
+      <tr className={`${detail ? 'clickable' : ''} ${expanded ? 'row-open' : ''}`} onClick={detail ? onToggle : undefined}>
+        <td>
+          <div className="dim">
+            <span className={`chev ${detail ? '' : 'chev-off'} ${expanded ? 'chev-open' : ''}`}>{detail && <Icon name="chevron" size={14} />}</span>
+            <span className="faint dim-id">{d.id}</span>
+            <span className="dim-main">
+              <span className="dim-name">{d.name}</span>
+              {d.critical && <span className="crit" title="Must-pass check: needs 4 or more">★</span>}
+            </span>
+          </div>
+        </td>
+        <td className="num faint">{d.weight}</td>
+        {raters.map((r) => (
+          <td key={r.id} className="num">{d.measuredBy === 'raters' ? <span className={`score-num score-${tone(d.raterScores[r.id] ?? null)}`}>{d.raterScores[r.id] ?? '—'}</span> : <span className="faint">·</span>}</td>
+        ))}
+        <td><ScoreBar score={d.consolidated} /></td>
+        <td className="num">{d.spread === null ? <span className="faint">—</span> : <span className={d.spread > 1 ? 'down' : ''}>{d.spread}</span>}</td>
+        <td><span title={status.help}><Chip tone={status.tone}>{status.label}</Chip></span></td>
+      </tr>
+      {expanded && (
+        <tr className="row-detail">
+          <td colSpan={columns}>
+            <div className="detail">
+              {d.codeDetail && <p><strong>Counted by the computer:</strong> {d.codeDetail.summary}.</p>}
+              {d.rationale && <p>{d.rationale}</p>}
+              {d.error && <p className="down">{d.error}</p>}
+              {d.evidence.length > 0 && (
+                <p className="detail-evidence">
+                  <span className="faint">Where to look</span>
+                  {d.evidence.map((e, i) => (
+                    <span key={i} className="evidence">
+                      <CellChip sheet={e.sheet} cell={e.cell} />
+                      {e.quote && <q>{e.quote}</q>}
+                    </span>
+                  ))}
+                </p>
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
+    </Fragment>
   );
 }

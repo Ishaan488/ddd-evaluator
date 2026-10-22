@@ -88,7 +88,7 @@ Use `MOCK_LLM=1` for everything that does not need a real model.
 
 ## Testing
 
-The suite is built around the PDF's rules. 157 server tests and 3 dashboard tests, all deterministic.
+The suite is built around the PDF's rules. 172 server tests and 3 dashboard tests, all deterministic.
 
 | File | What it proves |
 |---|---|
@@ -104,6 +104,8 @@ The suite is built around the PDF's rules. 157 server tests and 3 dashboard test
 | `providers.test.ts` | Groq/Gemini adapters against recorded response shapes: retries, back-off, key never in an error |
 | `api.test.ts` | Every endpoint, validation errors, evidence and override, downloads, iteration history |
 | `report.test.ts` | Eight sections, in order, in both formats; the core never changes |
+| `fallback.test.ts` | Fallback models: same family, named in the report, ordered, protect the consolidator, show live, approved-only, skipped without a key |
+| `preflight.test.ts` | The size check before submit, including fallbacks |
 | `catalog.test.ts`, `cli.test.ts`, `dbErrors.test.ts` | Model listing, command-line paths, and the plain-language database start-up errors |
 
 **Scripted models.** `llm/mock.ts` answers from the real prompt by persona, chosen by model name:

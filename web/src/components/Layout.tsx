@@ -60,7 +60,7 @@ function Sidebar() {
             {config.data.mock ? 'Mock models (demo)' : config.data.ready ? 'Live models ready' : 'Models need setup'}
           </div>
         )}
-        <p className="side-note">Agents recommend. People approve every gate.</p>
+        <p className="side-note">The agent advises. People make the final call.</p>
       </div>
     </aside>
   );

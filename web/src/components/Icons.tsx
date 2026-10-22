@@ -22,6 +22,12 @@ const paths: Record<string, ReactNode> = {
   list: <path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />,
   flag: <path d="M5 21V4M5 5h11l-2 4 2 4H5" />,
   lock: <path d="M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 017 0v3" />,
+  info: <path d="M12 8h.01M11 12h1v5h1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />,
+  chevron: <path d="M6 9l6 6 6-6" />,
+  bulb: <path d="M9 18h6M10 21h4M12 3a6 6 0 00-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0012 3z" />,
+  copy: <path d="M9 9h10v11H9zM5 15V4h10" />,
+  sheet: <path d="M4 5h16v14H4zM4 10h16M10 5v14" />,
+  scale: <path d="M12 4v16M6 8l-3 6a3 3 0 006 0zM18 8l-3 6a3 3 0 006 0zM5 20h14" />,
 };
 
 export type IconName = keyof typeof paths;

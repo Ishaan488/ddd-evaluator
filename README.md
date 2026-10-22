@@ -210,7 +210,7 @@ ddd/
 │   │   ├── report/                 the eight-section report as .xlsx and .md
 │   │   ├── scorecard/              scorecard parsing and hashing (YAML, JSON or Excel)
 │   │   └── util/
-│   └── tests/                    157 tests
+│   └── tests/                    172 tests
 │
 └── web/src/                      the dashboard
     ├── pages/                      Projects · New evaluation · Run · Project history · Models
@@ -241,7 +241,7 @@ No agent framework and no ORM; the reasons are in [docs/decisions.md](docs/decis
 
 ```bash
 npm run typecheck      # shared, server, web
-npm test               # 157 server tests + 3 dashboard tests, all deterministic
+npm test               # 172 server tests + 3 dashboard tests, all deterministic
 npm run docs:check     # every doc link, anchor, path and folder tree is real
 ```
 
@@ -254,11 +254,16 @@ the provider adapters, the API, and iteration history. The same API tests pass o
 
 Read this before relying on a verdict.
 
-- **No full evaluation has been run on live models yet.** The roster in `server/config/models.json` answered a live
-  `models:check --ping` (one Groq key, one Gemini key), but a complete evaluation has only been run on scripted models. Model availability varies by account and over time, so re-run the ping on your own keys.
+- **Live models have been tried, with mixed results on free keys.** The smaller Step 04 scorecard ran end to end on live Groq and Gemini and
+  produced a real report (twice). One rater was left out each time for a provider reason (Gemini overload, then a Gemini quota, then a Groq
+  size refusal), which is exactly what fallback models and graceful degradation are for. The large schema scorecard has not run live: see below. Model availability varies by account and over time, so re-run the ping on your own keys.
 - **The two scorecards are drafts** and say so in every report until your mentor approves them.
-- **Prompt size.** The Talentra schema prompt is about 13,400 tokens: fine for Gemini and paid Groq tiers, too big for
-  Groq's free tier (such a rater fails early with a clear message). Sectioned evaluation is not built.
+- **Prompt size, and it blocked the first live run.** The Talentra schema prompt is about **18,000 to 21,500 tokens per rater** (Groq measured
+  18,336 and 21,482). Groq's free tier allowed 8,000 and 7,000 per minute, so the Groq raters were refused. The app now measures the prompt
+  at submit and says so before running (it needs at least two raters that can take it); that measurement is an estimate and can be off by half
+  for number-heavy content. For the big schema scorecard use models or plans with larger limits. Sectioned evaluation is not built.
+- **Free tiers are fragile.** Gemini's newer models have small quotas and busy periods; Groq's free limits are about 7,000 to 8,000 tokens a minute.
+  Fallback models (same family) soften this; a paid or higher-limit key removes it.
 - **No authentication, no TLS, no rate limiting.** Put it behind your reverse proxy with sign-in for shared use.
   Full list: [docs/security.md](docs/security.md#residual-risks-read-these).
 - **Not built from the PDF:** calibration set and measures, shadow mode, the D1-D4 gate tracker, roles.

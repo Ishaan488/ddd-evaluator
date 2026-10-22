@@ -2,6 +2,31 @@
 
 All notable changes to the DDD Evaluator. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.3.0] - 2026-10-23
+
+### Added
+- **Fallback models.** A rater or the consolidator can list backup models, tried in order if its model fails (overload, quota, prompt too large). A fallback answers
+  as the same participant and counts as the same family, so three different families are always kept. Fallbacks must be approved; one without a key
+  is skipped with a warning. The report names the model that really answered, the run notes say what failed first, and the live view shows the model answering now.
+- `models:check` lists and pings fallbacks; the Models page shows them. `server/config/models.json` gives Gemini rater B a fallback (`gemini-3.1-flash-lite`).
+
+### Verified
+- A full evaluation (Step 04 scorecard) ran on live Groq and Gemini models. Live, a Gemini quota error (HTTP 429) was absorbed by a fallback, and a Groq size refusal
+  (HTTP 413) left one rater out cleanly while the run finished.
+
+## [1.2.1] - 2026-10-23
+
+### Fixed
+- The first live run failed because the schema prompt is far bigger than estimated. The token estimate is now calibrated against what Groq
+  counted (2.7 characters per token, not 4), and the documentation numbers are corrected (18,000 to 21,500 tokens per rater, not 13,400).
+- The app now **checks before running**: at submit it measures the real prompt against each rater's `maxInputTokens` and refuses the
+  evaluation, with a plain explanation and fixes, if fewer than two raters can take it.
+- Provider errors now show the provider's sentence instead of a block of JSON.
+- Transient provider overloads (503) are retried five times instead of three.
+
+### Changed
+- `server/config/models.json`: the Groq raters carry the token limits Groq reported for this account (8,000 and 7,000).
+
 ## [1.2.0] - 2026-10-23
 
 ### Changed

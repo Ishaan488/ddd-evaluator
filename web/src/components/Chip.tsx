@@ -18,13 +18,13 @@ export function SeverityChip({ severity }: { severity: Severity }) {
   return <span className={`chip chip-${tone} chip-sm`} title={title}>{SEVERITY_LABEL[severity]}</span>;
 }
 
-const BY_LABEL: Record<MeasuredBy, string> = { code: 'Code', raters: 'Raters', human: 'Person' };
+const BY_LABEL: Record<MeasuredBy, string> = { code: 'Computer', raters: 'AI examiners', human: 'A person' };
 
 export function ByChip({ by }: { by: MeasuredBy }) {
   return <span className={`chip chip-by chip-by-${by} chip-sm`}>{BY_LABEL[by]}</span>;
 }
 
-export function Chip({ children, tone = 'muted' }: { children: ReactNode; tone?: 'muted' | 'accent' | 'green' | 'amber' | 'red' }) {
+export function Chip({ children, tone = 'muted' }: { children: ReactNode; tone?: 'muted' | 'accent' | 'green' | 'amber' | 'red' | 'blue' }) {
   return <span className={`chip chip-${tone} chip-sm`}>{children}</span>;
 }
 

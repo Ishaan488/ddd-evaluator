@@ -1,20 +1,22 @@
 import type { RunDetail } from '@ddd/shared';
+import { useState } from 'react';
 import { Chip } from '../../components/Chip';
-import { formatDate, formatDuration, shortHash } from '../../format';
+import { CopyButton } from '../../components/CopyButton';
+import { formatDate, formatDuration, shortHash, splitNote } from '../../format';
 
 export function RunDetails({ run }: { run: RunDetail }) {
   const { header } = run.report!;
   const log = run.runLog;
   const rows: Array<[string, string, string?]> = [
-    ['Run id', header.runId, 'mono'],
+    ['Run ID', header.runId, 'mono'],
     ['Artifact', `${header.artifactName}`],
-    ['Artifact hash', header.artifactHash, 'mono'],
+    ['File fingerprint', header.artifactHash, 'mono'],
     ['Scorecard', `${header.scorecardName} v${header.scorecardVersion}`],
-    ['Scorecard hash', header.scorecardHash, 'mono'],
+    ['Scorecard fingerprint', header.scorecardHash, 'mono'],
     ['Scorecard approval', header.scorecardApproval ?? 'not stated'],
     ['Gate', header.gate === 'D1' ? 'D1 · schema design against its scorecard' : 'D3 · output document against its scorecard'],
-    ['Prompts', header.promptVersion, 'mono'],
-    ...(header.instructions ? ([['Extra instructions', header.instructions], ['Instructions hash', header.instructionsHash ?? '', 'mono']] as Array<[string, string, string?]>) : []),
+    ['Instructions version', header.promptVersion, 'mono'],
+    ...(header.instructions ? ([['Extra instructions', header.instructions], ['Instructions fingerprint', header.instructionsHash ?? '', 'mono']] as Array<[string, string, string?]>) : []),
     ['Started', formatDate(header.startedAt)],
     ['Finished', formatDate(header.finishedAt)],
   ];
@@ -25,7 +27,10 @@ export function RunDetails({ run }: { run: RunDetail }) {
         {rows.map(([k, v, cls]) => (
           <div key={k} className="kv-row">
             <dt>{k}</dt>
-            <dd className={cls}>{v}</dd>
+            <dd className={cls}>
+              {v}
+              {cls === 'mono' && v.length > 20 && <CopyButton value={v} />}
+            </dd>
           </div>
         ))}
       </dl>
@@ -36,13 +41,13 @@ export function RunDetails({ run }: { run: RunDetail }) {
             <thead>
               <tr>
                 <th>Model</th>
-                <th>Role</th>
+                <th>Job</th>
                 <th>Status</th>
                 <th className="num">Attempts</th>
                 <th className="num">Tokens in / out</th>
                 <th className="num">Time</th>
                 <th className="num">Discarded</th>
-                <th>Prompt</th>
+                <th>Instructions fingerprint</th>
               </tr>
             </thead>
             <tbody>
@@ -71,21 +76,36 @@ export function RunDetails({ run }: { run: RunDetail }) {
 
       {log && (
         <p className="note">
-          Counted in {formatDuration(log.timings.checksMs)} · rated in {formatDuration(log.timings.ratingMs)} · consolidated in {formatDuration(log.timings.consolidationMs)} · {formatDuration(log.timings.totalMs)} in all.
+          Checked in {formatDuration(log.timings.checksMs)} · marked in {formatDuration(log.timings.ratingMs)} · reviewed in {formatDuration(log.timings.consolidationMs)} · {formatDuration(log.timings.totalMs)} in all.
           Temperature {log.settings.temperature}, node {log.nodeVersion}.
         </p>
       )}
 
       {run.report!.notes.length > 0 && (
         <div className="run-notes">
-          <h3>Run notes</h3>
+          <h3>Notes from this run</h3>
           <ul>
             {run.report!.notes.map((n, i) => (
-              <li key={i}>{n}</li>
+              <Note key={i} text={n} />
             ))}
           </ul>
         </div>
       )}
     </>
+  );
+}
+
+function Note({ text }: { text: string }) {
+  const [more, setMore] = useState(false);
+  const { summary, rest } = splitNote(text);
+  return (
+    <li>
+      {more || !rest ? text : summary}
+      {rest && (
+        <button type="button" className="link-btn" onClick={() => setMore(!more)}>
+          {more ? 'Show less' : 'Show full message'}
+        </button>
+      )}
+    </li>
   );
 }

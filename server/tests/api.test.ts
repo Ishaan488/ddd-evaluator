@@ -196,6 +196,21 @@ describe('API', () => {
   });
 });
 
+describe('refusing an evaluation the raters cannot take', () => {
+  it('says so at submit, in plain words, and stores nothing', async () => {
+    const models = mockModels();
+    models.raters[0]!.maxInputTokens = 100;
+    models.raters[2]!.maxInputTokens = 100;
+    const limited = await start(models);
+    const res = await submit(limited, { workbook: talentra, scorecard, projectName: 'Too big' });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/only 1 of 3 raters can take that/);
+    expect(res.body.runId).toBeUndefined();
+    expect(await json<ProjectSummary[]>(await fetch(`${limited.base}/api/projects`))).toEqual([]);
+    await limited.close();
+  });
+});
+
 describe('Excel scorecards and the instructions box', () => {
   it('accepts a scorecard written in Excel and runs it exactly like the same scorecard in YAML', async () => {
     const { parseScorecard } = await import('../src/scorecard/parse.js');

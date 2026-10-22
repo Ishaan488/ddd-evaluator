@@ -30,7 +30,7 @@ function EvidenceForm({ run, item, onChange }: { run: RunDetail; item: NotMeasur
     <form className="evidence-form" onSubmit={save}>
       <div className="evidence-fields">
         <div className="field field-narrow">
-          <label className="field-label" htmlFor={`score-${item.dimensionId}`}>Score</label>
+          <label className="field-label" htmlFor={`score-${item.dimensionId}`}>Score (0-5)</label>
           <select id={`score-${item.dimensionId}`} className="input input-sm" value={score} onChange={(e) => setScore(e.target.value)}>
             <option value="">No score</option>
             {[5, 4, 3, 2, 1, 0].map((n) => (
@@ -39,11 +39,11 @@ function EvidenceForm({ run, item, onChange }: { run: RunDetail; item: NotMeasur
           </select>
         </div>
         <div className="field field-grow">
-          <label className="field-label" htmlFor={`note-${item.dimensionId}`}>Evidence</label>
+          <label className="field-label" htmlFor={`note-${item.dimensionId}`}>What you found</label>
           <input id={`note-${item.dimensionId}`} className="input input-sm" value={note} onChange={(e) => setNote(e.target.value)} placeholder="For example: interview held 22 Oct, author explained the tree unaided" required />
         </div>
         <div className="field field-narrow">
-          <label className="field-label" htmlFor={`by-${item.dimensionId}`}>By</label>
+          <label className="field-label" htmlFor={`by-${item.dimensionId}`}>Your name</label>
           <input id={`by-${item.dimensionId}`} className="input input-sm" value={by} onChange={(e) => setBy(e.target.value)} required />
         </div>
         <button type="submit" className="btn btn-secondary btn-sm" disabled={busy || note.trim().length < 3 || !by.trim()}>
@@ -58,12 +58,12 @@ function EvidenceForm({ run, item, onChange }: { run: RunDetail; item: NotMeasur
 export function NotMeasurable({ run, onChange }: { run: RunDetail; onChange: (run: RunDetail) => void }) {
   const items = run.report!.notMeasurable;
   if (items.length === 0) {
-    return <p className="muted">Every dimension in this scorecard was measured by code or by the raters.</p>;
+    return <p className="muted">Nothing here needs a person. The computer and the AI examiners covered everything.</p>;
   }
   return (
     <>
       <p className="muted lead">
-        A deliverable cannot turn green until a person supplies this evidence. Record it here; the verdict updates straight away and the agent’s own scores are never changed.
+        The result cannot be green until a person supplies these. Add them here and the result updates straight away. The agent’s own scores are never changed.
       </p>
       <ul className="human">
         {items.map((item) => (
@@ -71,9 +71,9 @@ export function NotMeasurable({ run, onChange }: { run: RunDetail; onChange: (ru
             <div className="human-head">
               <span className="mono faint">{item.dimensionId}</span>
               <h3>{item.name}</h3>
-              {item.critical && <span className="crit" title="Critical gate">★</span>}
-              {item.evidence ? <Chip tone="green"><Icon name="check" size={11} strokeWidth={2.6} /> Supplied</Chip> : <Chip tone="amber">Outstanding</Chip>}
-              <span className="faint human-weight">weight {item.weight}</span>
+              {item.critical && <span className="crit" title="Must-pass check">★</span>}
+              {item.evidence ? <Chip tone="green"><Icon name="check" size={11} strokeWidth={2.6} /> Supplied</Chip> : <Chip tone="amber">Still needed</Chip>}
+              <span className="faint human-weight">importance {item.weight}</span>
             </div>
             <p className="human-why">{item.reason} {item.whatIsNeeded}</p>
             {item.evidence && (

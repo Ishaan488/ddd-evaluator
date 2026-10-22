@@ -11,10 +11,11 @@ import type {
 import { runCodeChecks } from './checks/index.js';
 import type { ModelsConfig } from '../config.js';
 import { WorkbookModel } from '../excel/workbook.js';
-import { serializeSheets } from '../excel/serialize.js';
 import { inspectRoster, assertRosterReady } from '../llm/roster.js';
 import type { ProviderFactory } from '../llm/registry.js';
-import { PROMPT_VERSION, buildRaterUser } from './prompts/rater.js';
+import { candidatesFor, describeFailures, runWithFallback } from './fallback.js';
+import { buildRaterPrompt } from './prompt.js';
+import { PROMPT_VERSION } from './prompts/rater.js';
 import { buildConsolidatorUser } from './prompts/consolidator.js';
 import { sha256 } from '../util/hash.js';
 import { UserError } from '../util/errors.js';
@@ -25,7 +26,7 @@ import type { CallMeta, DraftFinding, RaterOutcome } from './types.js';
 
 export type ProgressEvent =
   | { type: 'stage'; stage: RunStage }
-  | { type: 'participant'; id: string; status: ParticipantStatus; error?: string; latencyMs?: number };
+  | { type: 'participant'; id: string; status: ParticipantStatus; error?: string; latencyMs?: number; provider?: string; model?: string };
 
 export interface EvaluateArgs {
   runId: string;
@@ -95,7 +96,6 @@ export async function evaluate(args: EvaluateArgs): Promise<EvaluationOutput> {
   const checksMs = Date.now() - checkStarted;
 
   /* 3. Blind rating by three models. */
-  const rated = scorecard.dimensions.filter((d) => d.measuredBy === 'raters');
   const raterRefs: ModelRef[] = roster.raters.map(({ id, provider, model, family }) => ({ id, provider, model, family }));
   const consolidatorRef: ModelRef = {
     id: roster.consolidator.id,
@@ -106,35 +106,45 @@ export async function evaluate(args: EvaluateArgs): Promise<EvaluationOutput> {
   const settings = { temperature: args.models.settings.temperature, maxOutputTokens: args.models.settings.maxOutputTokens };
   const returnTo = defaultReturnTo(scorecard.gate);
 
-  const artifactText = serializeSheets(wb, scorecard.artifact.sheets);
-  const raterUser = buildRaterUser({
-    scorecard,
-    dimensions: rated,
-    artifactText,
-    contextText: serializeSheets(wb, scorecard.artifact.context),
-    sources: args.sources,
-    instructions,
-  });
+  const { rated, artifactText, user: raterUser } = buildRaterPrompt({ scorecard, wb, sources: args.sources, instructions });
 
+  const fallbackNotes: string[] = [];
   const ratingStarted = Date.now();
   let outcomes: RaterOutcome[] = [];
   if (rated.length > 0) {
     emit({ type: 'stage', stage: 'rating' });
     outcomes = await Promise.all(
-      raterRefs.map(async (ref) => {
-        emit({ type: 'participant', id: ref.id, status: 'running' });
-        const outcome = await runRater({
-          model: ref,
-          provider: args.providers(ref.provider),
-          user: raterUser,
-          expected: rated,
-          wb,
-          allowedSheets,
-          defaultReturnTo: returnTo,
-          settings,
-          maxInputTokens: roster.raters.find((r) => r.id === ref.id)?.maxInputTokens,
-        });
-        emit({ type: 'participant', id: ref.id, status: outcome.status, error: outcome.error, latencyMs: outcome.latencyMs });
+      roster.raters.map(async (member) => {
+        const candidates = candidatesFor(member);
+        emit({ type: 'participant', id: member.id, status: 'running', provider: member.provider, model: member.model });
+        const { result: outcome, failures } = await runWithFallback(
+          candidates,
+          (candidate) => {
+            if (candidate !== candidates[0]) {
+              emit({ type: 'participant', id: member.id, status: 'running', provider: candidate.ref.provider, model: candidate.ref.model });
+            }
+            return runRater({
+              model: candidate.ref,
+              provider: args.providers(candidate.ref.provider),
+              user: raterUser,
+              expected: rated,
+              wb,
+              allowedSheets,
+              defaultReturnTo: returnTo,
+              settings,
+              maxInputTokens: candidate.maxInputTokens,
+            });
+          },
+          (o) => ({ ok: o.status === 'ok', error: o.error }),
+        );
+        if (failures.length > 0) {
+          if (outcome.status === 'ok') {
+            fallbackNotes.push(`Rater ${member.id}: ${describeFailures(failures)}. ${outcome.model.model} answered instead (same model family).`);
+          } else {
+            outcome.error = describeFailures(failures);
+          }
+        }
+        emit({ type: 'participant', id: member.id, status: outcome.status, error: outcome.error, latencyMs: outcome.latencyMs, provider: outcome.model.provider, model: outcome.model.model });
         return outcome;
       }),
     );
@@ -152,30 +162,51 @@ export async function evaluate(args: EvaluateArgs): Promise<EvaluationOutput> {
   let consolidation: Awaited<ReturnType<typeof consolidate>> | null = null;
   if (rated.length > 0) {
     emit({ type: 'stage', stage: 'consolidating' });
-    emit({ type: 'participant', id: consolidatorRef.id, status: 'running' });
-    consolidation = await consolidate({
-      model: consolidatorRef,
-      provider: args.providers(consolidatorRef.provider),
-      rated,
-      outcomes,
-      user: buildConsolidatorUser({
-        scorecard,
-        dimensions: rated,
-        raterResults: buildRaterResultsJson(rated, outcomes),
-        artifactText,
-        instructions,
-      }),
-      wb,
-      allowedSheets,
-      defaultReturnTo: returnTo,
-      settings,
+    emit({ type: 'participant', id: consolidatorRef.id, status: 'running', provider: roster.consolidator.provider, model: roster.consolidator.model });
+    const consolidatorCandidates = candidatesFor(roster.consolidator);
+    const consolidatorUser = buildConsolidatorUser({
+      scorecard,
+      dimensions: rated,
+      raterResults: buildRaterResultsJson(rated, outcomes),
+      artifactText,
+      instructions,
     });
+    const { result, failures } = await runWithFallback(
+      consolidatorCandidates,
+      (candidate) => {
+        if (candidate !== consolidatorCandidates[0]) {
+          emit({ type: 'participant', id: consolidatorRef.id, status: 'running', provider: candidate.ref.provider, model: candidate.ref.model });
+        }
+        return consolidate({
+          model: candidate.ref,
+          provider: args.providers(candidate.ref.provider),
+          rated,
+          outcomes,
+          user: consolidatorUser,
+          wb,
+          allowedSheets,
+          defaultReturnTo: returnTo,
+          settings,
+        });
+      },
+      (r) => ({ ok: r.call.status === 'ok', error: r.call.error }),
+    );
+    consolidation = result;
+    if (failures.length > 0) {
+      if (consolidation.call.status === 'ok') {
+        fallbackNotes.push(`Consolidator: ${describeFailures(failures)}. ${consolidation.call.model.model} answered instead.`);
+      } else {
+        consolidation.call.error = describeFailures(failures);
+      }
+    }
     emit({
       type: 'participant',
       id: consolidatorRef.id,
       status: consolidation.call.status,
       error: consolidation.call.error,
       latencyMs: consolidation.call.latencyMs,
+      provider: consolidation.call.model.provider,
+      model: consolidation.call.model.model,
     });
     consolidatedDims = consolidation.dimensions;
     raterFindings = consolidation.findings;
@@ -219,7 +250,10 @@ export async function evaluate(args: EvaluateArgs): Promise<EvaluationOutput> {
     ...(consolidation ? [{ ...consolidation.call, discarded: 0, discardedDetail: [] }] : []),
   ];
 
-  const notes: string[] = [];
+  const notes: string[] = [...fallbackNotes];
+  // The report names the models that actually answered, which differ from the roster when a fallback was used.
+  const usedRaters: ModelRef[] = outcomes.length > 0 ? outcomes.map((o) => o.model) : raterRefs;
+  const usedConsolidator: ModelRef = consolidation?.call.model ?? consolidatorRef;
   for (const o of outcomes) {
     if (o.status === 'failed') notes.push(`Rater ${o.model.id} (${o.model.model}) failed and was left out: ${o.error}`);
     else if (o.discarded.length > 0) notes.push(`Rater ${o.model.id} had ${o.discarded.length} claim(s) discarded for missing or unsupported evidence.`);
@@ -244,8 +278,8 @@ export async function evaluate(args: EvaluateArgs): Promise<EvaluationOutput> {
       scorecardVersion: scorecard.version,
       scorecardHash: args.scorecardHash,
       scorecardApproval: scorecard.approval,
-      raters: raterRefs,
-      consolidator: consolidatorRef,
+      raters: usedRaters,
+      consolidator: usedConsolidator,
       promptVersion: PROMPT_VERSION,
       ...(instructions ? { instructions, instructionsHash: sha256(instructions) } : {}),
       startedAt: startedAt.toISOString(),
@@ -265,7 +299,7 @@ export async function evaluate(args: EvaluateArgs): Promise<EvaluationOutput> {
     promptVersion: PROMPT_VERSION,
     promptHashes: Object.fromEntries(calls.map((c) => [c.model.id, c.promptHash])),
     settings,
-    models: [...raterRefs, consolidatorRef],
+    models: [...usedRaters, usedConsolidator],
     artifactHash,
     scorecardHash: args.scorecardHash,
     timings: { totalMs: finishedAt.getTime() - startedAt.getTime(), checksMs, ratingMs, consolidationMs },

@@ -43,6 +43,9 @@ server/src/agent/
 │   └── consolidator.ts   what the consolidator is told
 │
 ├── rater.ts            stage 3: runs one rater, keeps only evidence-backed claims
+├── fallback.ts           backup models: same participant, same family, tried in order
+├── prompt.ts             builds what the raters are sent (shared with the pre-submit check)
+├── preflight.ts          before running: can enough raters take this prompt?
 ├── callModel.ts          one model call + the single "repair" retry on a bad reply
 ├── raterSchema.ts        the exact shape a model reply must have
 ├── evidence.ts           "does this cited cell really exist, and does the quote appear in it?"
@@ -127,6 +130,10 @@ Everything discarded is counted and stored per rater, so nothing disappears sile
 limit is known (`maxInputTokens` in `models.json`) and the prompt is bigger, that rater fails immediately with
 advice instead of sending a doomed request.
 
+If a rater's model fails, its configured **fallback models** are tried in order. A fallback answers as the same participant and counts as the same
+family, so independence is kept (`agent/fallback.ts`); the report header names the model that really answered and the run notes say what
+failed first. The consolidator has fallbacks too.
+
 If **all three** raters fail the run fails loudly. A report built on nothing would show a misleading red.
 
 ### Stage 4 · Consolidate  (`consolidate.ts`, `prompts/consolidator.ts`)
@@ -203,7 +210,7 @@ Every guardrail on PDF page 13 is enforced by code, and has a test.
 | What happens | What the agent does |
 |---|---|
 | A rater returns invalid JSON | One repair attempt, then that rater is left out; the report says so |
-| A rater's provider is down or rate-limited | The HTTP layer retries with back-off (honouring `Retry-After`); then that rater is left out |
+| A rater's provider is down, rate-limited or out of quota | The HTTP layer retries with back-off (honouring `Retry-After`); then the rater's **fallback models** are tried in order (same family); only if all fail is that rater left out |
 | Two raters fail | The one left is used and every dimension it scored is flagged for a person |
 | All three raters fail | The run **fails** with the reasons; no verdict is invented |
 | The consolidator fails | Lower score used wherever raters differ; flagged; findings kept unmerged |

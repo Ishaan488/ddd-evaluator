@@ -264,6 +264,7 @@ file does not change it, but changing a weight, anchor or threshold does.
   Otherwise YAML reads it as a nested mapping and rejects the file. The error message says which line.
 - Put everything countable in code. Use raters only for judgement, and keep their anchors concrete and distinguishable.
 - Give every critical rater dimension anchors where **4** means "good, with one minor gap", because 4 is the gate.
-- Keep the rater prompt small with `columns` (a 169-node schema plus 194 allowed values is about 13,000 tokens).
+- Keep the rater prompt small with `columns`. A 169-node schema plus 194 allowed values is about 18,000 to 21,500 tokens per rater, more than
+  the free tier of some providers allows per minute (the app checks this at submit and tells you).
 - Treat a scorecard like code: version it, review it, freeze it, then do not edit it. Change means a new `version`.
 - Excel or YAML is a matter of taste: they are interchangeable. Keep **one** of them as the master copy so they cannot drift apart.

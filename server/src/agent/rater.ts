@@ -24,8 +24,11 @@ export interface RunRaterArgs {
   maxInputTokens?: number;
 }
 
-/** About four characters to a token: close enough to stop a prompt that cannot possibly fit. */
-export const estimateTokens = (text: string): number => Math.ceil(text.length / 4);
+/**
+ * About 2.7 characters to a token. The cell-address text we send (`H5="..."`) is token-heavy: Groq counted 18,336 and 21,482
+ * tokens for a prompt of 53,700 characters. Four characters per token, which suits plain prose, under-counted it by a third or more.
+ */
+export const estimateTokens = (text: string): number => Math.ceil(text.length / 2.7);
 
 type RawReply = ReturnType<typeof raterReplySchema.parse>;
 

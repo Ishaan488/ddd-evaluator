@@ -48,3 +48,15 @@ export function shortHash(hash: string): string {
 export function location(loc: { sheet: string; cell: string } | null | undefined): string {
   return loc ? `${loc.sheet}!${loc.cell}` : '—';
 }
+
+/**
+ * Provider messages can run to several lines of links and quota numbers. Show the first sentence in full view and keep
+ * the rest one click away.
+ */
+export function splitNote(note: string, max = 170): { summary: string; rest: string | null } {
+  const flat = note.replace(/\s+/g, ' ').trim();
+  const sentenceEnd = flat.search(/[.!?](\s|$)/);
+  let summary = sentenceEnd > 0 && sentenceEnd < max ? flat.slice(0, sentenceEnd + 1) : flat.slice(0, max);
+  if (summary.length < flat.length && !/[.!?]$/.test(summary)) summary = `${summary.trimEnd()}…`;
+  return { summary, rest: flat.length > summary.length ? flat : null };
+}

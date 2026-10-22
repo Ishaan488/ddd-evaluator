@@ -67,14 +67,15 @@ Keys are read from the environment only. They are never written to the database,
 
 ```jsonc
 {
-  "approved": ["groq:openai/gpt-oss-120b", "groq:openai/gpt-oss-20b", "groq:qwen/qwen3.8-27b", "gemini:gemini-3.5-flash"],   // only these may receive project documents
+  "approved": ["groq:openai/gpt-oss-120b", "groq:openai/gpt-oss-20b", "groq:qwen/qwen3.8-27b", "gemini:gemini-3.5-flash", "gemini:gemini-3.1-flash-lite"],   // only these may receive project documents
   "providers": {
     "groq":   { "type": "openai-compatible", "baseUrl": "https://api.groq.com/openai/v1", "keyEnv": "GROQ_API_KEY" },
     "gemini": { "type": "gemini", "keyEnv": "GEMINI_API_KEY" }
   },
   "raters": [                                                  // exactly three, three different families
     { "id": "A", "provider": "groq",   "model": "openai/gpt-oss-120b", "family": "openai" },
-    { "id": "B", "provider": "gemini", "model": "gemini-3.5-flash",    "family": "google" },
+    { "id": "B", "provider": "gemini", "model": "gemini-3.5-flash",    "family": "google",
+      "fallbacks": [{ "provider": "gemini", "model": "gemini-3.1-flash-lite" }] },
     { "id": "C", "provider": "groq",   "model": "qwen/qwen3.8-27b",    "family": "alibaba", "maxInputTokens": 30000 }
   ],
   "consolidator": { "id": "K", "provider": "groq", "model": "openai/gpt-oss-20b", "family": "openai" },
@@ -89,9 +90,10 @@ Keys are read from the environment only. They are never written to the database,
 | `raters` | Exactly three. Their `family` values must differ, or the roster is refused |
 | `family` | Free text naming the model family (`meta`, `google`, `openai` ...). The independence rule compares these |
 | `maxInputTokens` | Optional. A prompt estimated above this fails that rater at once with advice, instead of sending a doomed request |
+| `fallbacks` | Optional list of backup models, tried **in order** if the model fails for any reason (overloaded, quota used up, prompt too large). A fallback answers as the same participant and **counts as the same family**, so the three raters stay three different families, and it must be on `approved` because it receives the documents. A fallback with no API key is skipped with a warning. The report names the model that really answered |
 | `settings` | Temperature 0 for reproducibility; `retries` applies to rate limits, 5xx errors and timeouts |
 
-The roster above is the one that answered a live `models:check --ping` on 22 October 2026 with one Groq and one Gemini key.
+The roster above is the one that answered a live `models:check --ping` on 22 to 23 October 2026 with one Groq and one Gemini key.
 Model availability changes often and differs by account (for example Google lists models that new accounts cannot call, and
 some preview models are overloaded or have no free quota), so **run `models:check --ping` on your own keys** and edit this
 file if a model fails. The consolidator here shares a family with rater A, which gives a warning but is allowed.
@@ -152,14 +154,19 @@ start with the message "The server stopped before this evaluation finished. Subm
 ## Cost and rate limits
 
 Each evaluation makes **four model calls** (three raters and a consolidator), and each carries the artifact. For
-the Talentra schema (169 nodes and 194 allowed values) with the sample scorecard, a rater prompt is about **13,400
-tokens** and the consolidator's about 13,900, so roughly **54,000 input tokens per evaluation**. The Step 04 NFR
-output is about 4,000 per call, roughly 16,500 per evaluation. (Measured at about four characters per token; the run
-log records the provider's real counts.)
+the Talentra schema (169 nodes and 194 allowed values) with the sample scorecard, a rater prompt is about **18,000 to
+21,500 tokens** (Groq counted 18,336 with the gpt-oss tokenizer and 21,482 with qwen's for the same text) and the
+consolidator's is a little larger, so roughly **75,000 to 85,000 input tokens per evaluation**. The Step 04 NFR output is
+about 6,000 per call. The app estimates at 2.7 characters per token, calibrated on that schema prompt. **It is only an estimate**: how many
+characters make a token depends on the content (the NFR register, full of numbers, was counted by Groq at about 8,900
+tokens where the estimate said about 6,000), and each provider counts differently. The provider's refusal is the final word,
+and the run records the real counts. Treat the estimate as a guide for planning, not a guarantee.
 
 - Extra instructions (up to 4,000 characters, roughly 1,000 tokens) are added to every call, so keep them short.
-- Free tiers of some providers cap tokens per minute well below 13,000; such a rater fails early with a clear message.
-  Use a paid tier, use Gemini for the large calls, or narrow the prompt with `columns` in the scorecard.
+- Free tiers cap tokens per minute. Groq's `on_demand` tier reported 8,000 for `gpt-oss-120b` and 7,000 for `qwen3.8-27b`, far below the
+  schema prompt. **At submit the app measures the prompt against each rater's `maxInputTokens` and refuses the evaluation, in plain words, if
+  fewer than two raters can take it**, instead of failing three calls later. Fix it with a larger plan or model, a smaller scorecard, or
+  `columns` in the scorecard. `maxInputTokens` is account-specific: when you upgrade a plan, raise or remove it.
 - Rate limits and transient errors are retried with back-off, honouring `Retry-After`, up to `retries` times.
 - The PDF's advice for cost is to evaluate small sections first. That is not built yet.
 
@@ -204,8 +211,12 @@ backups with the same care as the documents themselves.
 | `Column "X" named by the scorecard was not found in sheet "Y". Columns: ...` | Wrong column title in `columns` | Use the exact header title |
 | `The file is not a valid .xlsx workbook` | A different or corrupt file | Re-save as .xlsx |
 | `All three raters failed, so nothing can be scored.` + reasons | Providers down, keys wrong, rate limited, prompts too big | Read each reason; run `models:check -- --ping` |
-| `The prompt is about N tokens, over the M limit set for <model>.` | `maxInputTokens` exceeded | Add `columns` to the scorecard, or raise the limit |
+| `This evaluation sends about N tokens to each rater, but only 1 of 3 raters can take that` | The prompt is bigger than the limits set for the raters (shown at submit) | Add `columns`, use a smaller scorecard, or give a rater a model or plan with a larger limit |
+| `The prompt is about N tokens, over the M limit set for <model>.` | `maxInputTokens` exceeded for one rater during a run | Same as above |
+| `HTTP 413: Request too large for model ... Limit 8000, Requested 18336` | The provider's tokens-per-minute limit is smaller than the prompt | As above: a larger plan or model, or a smaller prompt |
+| `HTTP 429: You exceeded your current quota` (Gemini) | The free-tier quota for that model is used up (newer models have small daily quotas) | Rely on the model's `fallbacks`, wait for the quota to reset, or use a paid key |
 | `HTTP 429` in a rater's error | Provider rate limit after all retries | Use a higher tier or retry later |
+| `HTTP 503: This model is currently experiencing high demand` | The provider is overloaded; the app retried (5 times with waiting) | Submit again a little later, or pick a less busy model |
 | `The workbook changed while it was being evaluated.` | The file was modified during the run | Submit again |
 | `Cannot reach the server. Is it running?` (dashboard) | Server stopped or wrong port | Start it; in development check the Vite proxy port |
 | Dashboard shows "Mock models (demo)" in real use | `MOCK_LLM=1` is set | Unset it |

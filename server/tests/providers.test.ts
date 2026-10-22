@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GeminiProvider } from '../src/llm/gemini.js';
 import { OpenAiCompatibleProvider, stripReasoning } from '../src/llm/openaiCompatible.js';
+import { errorDetail } from '../src/llm/http.js';
 import { createProviderFactory } from '../src/llm/registry.js';
 import { LlmError } from '../src/llm/types.js';
 import { mockModels } from './helpers.js';
@@ -50,6 +51,17 @@ describe('OpenAI-compatible provider (Groq, OpenAI, OpenRouter)', () => {
     expect(error).toBeInstanceOf(LlmError);
     expect((error as Error).message).toMatch(/HTTP 503/);
     expect((error as Error).message).not.toContain('SECRET-KEY');
+  });
+
+  it('shows the provider\'s sentence, not the raw JSON, so the dashboard message is readable', async () => {
+    const groq = JSON.stringify({ error: { message: 'Request too large for model `openai/gpt-oss-120b` on tokens per minute (TPM): Limit 8000, Requested 18336, please reduce your message size', type: 'tokens', code: 'rate_limit_exceeded' } });
+    const { fetchImpl } = scripted([reply(413, groq)]);
+    const provider = new OpenAiCompatibleProvider('groq', 'https://x', 'K', { timeoutMs: 1000, retries: 0, fetchImpl, sleep: noSleep });
+    const error = (await provider.complete(request).catch((e: Error) => e)) as Error;
+    expect(error.message).toBe('HTTP 413: Request too large for model `openai/gpt-oss-120b` on tokens per minute (TPM): Limit 8000, Requested 18336, please reduce your message size');
+    const gemini = [{ error: { code: 503, message: 'This model is currently experiencing high demand.', status: 'UNAVAILABLE' } }];
+    expect(errorDetail(JSON.stringify(gemini))).toBe('This model is currently experiencing high demand.');
+    expect(errorDetail('plain text failure')).toBe('plain text failure');
   });
 
   it('does not retry a request the provider rejects as invalid', async () => {

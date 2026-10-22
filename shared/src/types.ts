@@ -272,6 +272,7 @@ export interface Report {
 /* -------------------------------- API -------------------------------- */
 
 export interface ParticipantProgress {
+  /** The participant's id (A, B, C, K). The provider and model shown are whichever is answering now. */
   id: string;
   role: 'rater' | 'consolidator';
   provider: string;
@@ -380,10 +381,17 @@ export interface RosterProblem {
   message: string;
 }
 
+export interface FallbackStatus {
+  provider: string;
+  model: string;
+  keyPresent: boolean;
+  approved: boolean;
+}
+
 export interface ConfigResponse {
   mock: boolean;
-  raters: Array<ModelRef & { keyPresent: boolean; approved: boolean }>;
-  consolidator: ModelRef & { keyPresent: boolean; approved: boolean };
+  raters: Array<ModelRef & { keyPresent: boolean; approved: boolean; fallbacks: FallbackStatus[] }>;
+  consolidator: ModelRef & { keyPresent: boolean; approved: boolean; fallbacks: FallbackStatus[] };
   problems: RosterProblem[];
   ready: boolean;
   promptVersion: string;

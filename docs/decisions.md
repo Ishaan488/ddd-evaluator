@@ -20,6 +20,7 @@ something, the PDF wins and the decision says so.
 | [13](#adr-13-a-scripted-mock-provider-is-part-of-the-product) | A scripted mock provider is part of the product |
 | [14](#adr-14-everything-the-agent-needs-lives-in-one-folder) | Everything the agent needs lives in one folder |
 | [15](#adr-15-excel-scorecards-and-an-extra-instructions-box) | Excel scorecards and an extra-instructions box |
+| [16](#adr-16-fallback-models-keep-the-family) | Fallback models keep the family |
 
 ---
 
@@ -206,3 +207,18 @@ touching the scorecard. The PDF's rater pattern says "scorecard, artifact, sourc
 documented extension; leaving the box empty follows the PDF exactly. The instructions are not part of the frozen scorecard, so two
 runs of the same scorecard with different instructions are comparable only if the instructions are read alongside; the report shows them.
 An AI that *drafts a scorecard from a prompt* is deliberately not built: the PDF reserves that for Level 2.
+
+## ADR-16: Fallback models keep the family
+
+**Context.** The first live runs showed that models fail for ordinary reasons: Gemini overloaded (503), a free-tier quota used up (429),
+a prompt over a plan's limit (413). Each cost a rater, and with only three raters that weakens the result. Simply swapping in any other model would break
+the PDF's independence rule (three different families).
+
+**Decision.** Any rater or the consolidator may list `fallbacks`. If the model fails for any reason, the fallbacks are tried in order. A fallback
+answers **as the same participant and counts as the same family**, must be on the approved list (it receives the documents), and is skipped with a
+warning if it has no key. The report header names the models that really answered, the run notes say what failed first, and progress shows the
+model currently answering. The pre-submit size check counts a rater as able to take the prompt if its model or any fallback can.
+
+**Consequences.** One provider's bad hour no longer removes a rater, and three different families are still guaranteed. A fallback in the same family
+is usually a smaller or older sibling, so its scores may be a little different; the report says when one was used. A fallback from a different provider
+that hosts the same family (for example another host of an open model) is the strongest option when a plan's limits are the problem.
