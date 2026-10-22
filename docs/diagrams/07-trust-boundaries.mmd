@@ -1,0 +1,39 @@
+flowchart LR
+  subgraph UNTRUSTED["Untrusted: the browser and uploaded files"]
+    direction TB
+    UP["Uploaded workbook<br/>and scorecard"]
+  end
+
+  subgraph TRUSTED["Trusted: the server process"]
+    direction TB
+    V1["<b>Input checks</b><br/>.xlsx only, 25 MB cap<br/>scorecard checked against a strict schema"]
+    RD["<b>Workbook reader</b><br/>parses the file as data<br/>never runs macros or formulas"]
+    HASH["<b>Freeze</b><br/>hash before and after<br/>the file is only ever read"]
+    KEYS["<b>API keys</b><br/>server environment only<br/>never sent to the browser or logged"]
+    GATE["<b>Roster gate</b><br/>approved models only<br/>3 distinct families"]
+    EVID["<b>Evidence gate</b><br/>a claim must cite a real cell,<br/>so text hidden in a file cannot<br/>invent findings"]
+  end
+
+  subgraph EXTERNAL["External: model providers"]
+    direction TB
+    MM["Approved models<br/>3 raters + 1 consolidator"]
+  end
+
+  subgraph DATA["Data at rest"]
+    direction TB
+    FSTORE[["Upload folder<br/>copies of workbooks"]]
+    PG[("Postgres<br/>prompts, replies, scores")]
+  end
+
+  UP --> V1 --> RD --> HASH --> GATE
+  KEYS --> GATE
+  V1 --> FSTORE
+  GATE -->|"project documents leave the server<br/>only to approved models"| MM
+  MM --> EVID --> PG
+
+  classDef trusted fill:#0f2a27,stroke:#2dd4bf,color:#ececf0
+  classDef risk fill:#262010,stroke:#f5b13d,color:#ececf0
+  classDef store fill:#12151f,stroke:#7aa2f7,color:#ececf0
+  class V1,RD,KEYS,GATE,EVID,HASH trusted
+  class UP,MM risk
+  class PG,FSTORE store

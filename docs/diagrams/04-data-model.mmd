@@ -1,0 +1,78 @@
+erDiagram
+  projects ||--o{ runs : "has iterations"
+  runs ||--o{ model_calls : "logs"
+  runs ||--o{ dimension_scores : "scores"
+  runs ||--o{ findings : "reports"
+  runs ||--o{ human_evidence : "receives"
+  runs ||--o{ overrides : "receives"
+
+  projects {
+    text id PK
+    text name UK
+    text step
+    timestamptz created_at
+  }
+  runs {
+    text id PK
+    text project_id FK
+    int iteration "unique per project"
+    text status "queued, running, done, failed"
+    text stage
+    text scorecard_hash
+    text artifact_hash
+    jsonb scorecard "frozen copy"
+    jsonb core "immutable evaluation"
+    jsonb run_log
+    float weighted_score
+    text agent_decision
+    text final_decision "after any override"
+  }
+  model_calls {
+    text run_id PK
+    text participant_id PK
+    text role "rater or consolidator"
+    text provider
+    text model
+    text family
+    text prompt_hash
+    text prompt
+    text raw_response
+    jsonb discarded
+    int input_tokens
+    int latency_ms
+  }
+  dimension_scores {
+    text run_id PK
+    text dimension_id PK
+    text measured_by "code, raters, human"
+    text status
+    float score
+    float spread
+    jsonb rater_scores
+    bool flagged
+  }
+  findings {
+    text run_id PK
+    text finding_id PK
+    text fingerprint "same problem across iterations"
+    text severity
+    text dimension_id
+    text sheet
+    text cell
+    text fix
+  }
+  human_evidence {
+    text id PK
+    text run_id FK
+    text dimension_id
+    int score
+    text note
+    text by_name
+  }
+  overrides {
+    text id PK
+    text run_id FK
+    text decision
+    text reason
+    text by_name
+  }

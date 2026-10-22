@@ -1,0 +1,42 @@
+flowchart LR
+  subgraph PEOPLE["People (Level 1: people own every judgement)"]
+    direction TB
+    AU["Author<br/><i>defines schema and scorecard,<br/>fixes findings, resubmits</i>"]
+    PR["Peer reviewer<br/><i>checks fixes before re-evaluation</i>"]
+    ME["Mentor / Lead<br/><i>supplies human-only evidence,<br/>approves gates, overrides</i>"]
+  end
+
+  subgraph SYS["DDD Evaluator"]
+    direction TB
+    UI["Dashboard<br/>React"]
+    API["API<br/>Express"]
+    AG(["<b>Evaluator agent</b><br/>3 raters + 1 consolidator"])
+    DB[("Postgres<br/>runs · scores · findings · logs")]
+    FS[["Upload store<br/>read-only copies of workbooks"]]
+  end
+
+  subgraph MODELS["Model providers (approved models only)"]
+    direction TB
+    GQ["Groq"]
+    GM["Gemini"]
+    OT["Any OpenAI-compatible API"]
+  end
+
+  AU --> UI
+  PR --> UI
+  ME --> UI
+  UI <-->|REST| API
+  API --> AG
+  API <--> DB
+  API --> FS
+  AG -.->|reads, never writes| FS
+  AG -->|HTTPS, keys from server env| GQ
+  AG --> GM
+  AG --> OT
+
+  classDef agent fill:#0f2a27,stroke:#2dd4bf,color:#ececf0,stroke-width:2px
+  classDef store fill:#12151f,stroke:#7aa2f7,color:#ececf0
+  classDef ext fill:#1b1710,stroke:#f5b13d,color:#ececf0
+  class AG agent
+  class DB,FS store
+  class GQ,GM,OT ext

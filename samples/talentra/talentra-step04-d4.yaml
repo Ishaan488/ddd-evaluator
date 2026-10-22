@@ -1,0 +1,148 @@
+# D4 · Output scorecard for Step 04 (NFR Discovery): the NFR register against the Talentra schema.
+#
+# DRAFT FOR APPROVAL. Same format as the schema scorecard, but judging a D3 output document.
+# Code checks test the register against the schema's allowed-value lists and the playbook's
+# "every NFR has a number and a test method"; raters judge the content.
+
+x-bands: &strict
+  - { min: 1.00, score: 5 }
+  - { min: 0.97, score: 4 }
+  - { min: 0.90, score: 3 }
+  - { min: 0.75, score: 2 }
+  - { min: 0.01, score: 1 }
+
+scorecard:
+  id: SC-STEP04-D4
+  name: NFR register output scorecard
+  version: "1.0"
+  judges: D3 output document · Step 04
+  step: "04"
+  frozen: true
+  approval: "Draft by the assistant, pending mentor approval"
+  thresholds: { accept: 90, refine: 75 }
+
+  artifact:
+    sheets:
+      - name: NFR register
+        header_row: 3
+        columns: [nfr_id, category, requirement_statement, metric, unit, comparator, target_value, target_text, target_status, test_method, measured_by, derived_from, volume_basis, regulation_name, our_status]
+    context_sheets:
+      - name: Stage 1 steps
+        header_row: 4
+        columns: [Step, Name, Purpose, Do, Produce, Done when]
+
+  dimensions:
+    # ---------------------------------------------------------------- counted by code
+    - id: O01
+      name: Categories come from the allowed list
+      weight: 6
+      measured_by: code
+      check:
+        id: values_in_list
+        params: { sheet: NFR register, column: category, lists_sheet: Allowed values, lists_name_column: List, lists_value_column: Value, list: NfrCategory }
+        bands: *strict
+        fix: Use one of the allowed NfrCategory values, or add the new value to the schema first.
+
+    - id: O02
+      name: "'Measured by' comes from the allowed list"
+      weight: 4
+      measured_by: code
+      check:
+        id: values_in_list
+        params: { sheet: NFR register, column: measured_by, lists_sheet: Allowed values, lists_name_column: List, lists_value_column: Value, list: MeasuredBy }
+        bands: *strict
+        fix: Use one of the allowed MeasuredBy values.
+
+    - id: O03
+      name: Status comes from the allowed list
+      weight: 4
+      measured_by: code
+      check:
+        id: values_in_list
+        params: { sheet: NFR register, column: our_status, lists_sheet: Allowed values, lists_name_column: List, lists_value_column: Value, list: NfrStatus }
+        bands: *strict
+        fix: Use one of the allowed NfrStatus values.
+
+    - id: O04
+      name: Every set target has a number
+      weight: 10
+      critical: true
+      measured_by: code
+      measure: NFRs whose target is "Set" that carry a target value
+      check:
+        id: column_filled
+        params: { sheet: NFR register, column: target_value, where: { column: target_status, equals: Set } }
+        bands: *strict
+        fix: Give the NFR a numeric target value, or change its target status to "To be set".
+
+    - id: O05
+      name: Every NFR has a test method
+      weight: 10
+      critical: true
+      measured_by: code
+      check:
+        id: column_filled
+        params: { sheet: NFR register, column: test_method }
+        bands: *strict
+        fix: Say how the target will be tested.
+
+    - id: O06
+      name: Targets are derived, not guessed
+      weight: 6
+      measured_by: code
+      measure: NFRs whose target is derived from volumes, a regulation or a team decision
+      check:
+        id: value_not_in
+        params: { sheet: NFR register, column: derived_from, forbidden: [Not yet derived] }
+        bands: *strict
+        fix: Derive the target from volumes or name the regulation it comes from.
+
+    # ------------------------------------------------------------ judged by the 3 raters
+    - id: O07
+      name: Each requirement is specific and testable
+      weight: 18
+      measured_by: raters
+      measure: Could a tester decide pass or fail from the statement, metric and target alone?
+      anchors:
+        5: Every statement names a metric, a unit and a target that a test can confirm.
+        4: Almost all are testable; one or two are loose.
+        3: Several statements are vague or mix more than one requirement.
+        2: Many statements cannot be tested as written.
+        1: Most statements are slogans, not requirements.
+        0: There are no testable requirements.
+
+    - id: O08
+      name: Targets are realistic and their basis is argued
+      weight: 14
+      measured_by: raters
+      measure: Is each target consistent with the volumes or rule it claims to come from?
+      anchors:
+        5: Every target follows from its stated basis, with the working shown.
+        4: Targets follow from their basis; one or two lack the working.
+        3: Some targets are asserted with no visible basis.
+        2: Many targets look guessed or contradict their basis.
+        1: Targets are mostly guesses.
+        0: No basis is given anywhere.
+
+    - id: O09
+      name: Covers every quality area the playbook names
+      weight: 18
+      critical: true
+      measured_by: raters
+      measure: Scale, response time, availability, security, privacy, compliance and accessibility each have a target
+      anchors:
+        5: Every area the playbook names has at least one measurable NFR.
+        4: Every area is covered; one area has a weak target.
+        3: One area is missing or only proposed.
+        2: Two areas are missing.
+        1: Most areas are missing.
+        0: The register ignores the playbook list.
+      return_to: Generate
+
+    # ---------------------------------------------------------------- only a person can
+    - id: H01
+      name: Lead sign-off
+      weight: 10
+      critical: true
+      measured_by: human
+      needs: The lead confirms that the proposed NFRs are approved. Proposed targets are not decisions until a person approves them.

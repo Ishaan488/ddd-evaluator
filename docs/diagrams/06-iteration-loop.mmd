@@ -1,0 +1,27 @@
+flowchart LR
+  D["<b>Author drafts</b><br/>schema (D1) and<br/>scorecard (D2)"]
+  S["<b>Submit</b><br/>workbook +<br/>frozen scorecard"]
+  E(["<b>Evaluator agent</b><br/>scores it, writes the<br/>report and path to green"])
+  V{"Verdict"}
+  G["<b>GREEN</b><br/>a person at the gate<br/>confirms"]
+  N["Next stage"]
+  A["<b>AMBER</b><br/>author fixes the findings,<br/>path to green first"]
+  P["<b>Peer reviewer</b><br/>checks the fixes"]
+  S2["<b>Resubmit</b><br/>a new iteration with<br/>its own score"]
+  R["<b>RED</b><br/>back to Discover or Define<br/>with a mentor"]
+
+  D --> S --> E --> V
+  V -- "90+, gates passed,<br/>evidence supplied" --> G --> N
+  V -- "75 to 89, or a gate under 4,<br/>or evidence missing" --> A --> P --> S2 --> E
+  V -- "under 75" --> R --> D
+
+  classDef agent fill:#0f2a27,stroke:#2dd4bf,color:#ececf0,stroke-width:2px
+  classDef good fill:#0f2218,stroke:#3ecf8e,color:#ececf0
+  classDef warn fill:#262010,stroke:#f5b13d,color:#ececf0
+  classDef bad fill:#2a1413,stroke:#f2655c,color:#ececf0
+  classDef gate fill:#14141a,stroke:#7aa2f7,color:#ececf0
+  class E agent
+  class G,N good
+  class A,P,S2 warn
+  class R bad
+  class V gate

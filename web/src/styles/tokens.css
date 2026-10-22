@@ -1,0 +1,43 @@
+:root {
+  color-scheme: dark;
+
+  /* surfaces */
+  --bg: #08080a;
+  --surface: #0f0f12;
+  --surface-2: #141418;
+  --surface-3: #1a1a1f;
+  --border: #222228;
+  --border-strong: #2f2f37;
+
+  /* text */
+  --text: #ececf0;
+  --text-2: #b4b4be;
+  --muted: #8a8a96;
+  --faint: #5f5f6a;
+
+  /* the agent colour (PDF: "teal = agents") */
+  --accent: #2dd4bf;
+  --accent-dim: rgba(45, 212, 191, 0.12);
+  --accent-line: rgba(45, 212, 191, 0.35);
+
+  /* verdicts: used for nothing else */
+  --green: #3ecf8e;
+  --green-dim: rgba(62, 207, 142, 0.12);
+  --amber: #f5b13d;
+  --amber-dim: rgba(245, 177, 61, 0.12);
+  --red: #f2655c;
+  --red-dim: rgba(242, 101, 92, 0.12);
+
+  /* severity reuses the same hues, so HIGH reads as red, MEDIUM as amber, LOW as neutral */
+  --blue: #7aa2f7;
+
+  --font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-xs: 6px;
+  --sidebar: 244px;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 12px 32px rgba(0, 0, 0, 0.35);
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}

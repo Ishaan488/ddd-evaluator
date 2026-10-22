@@ -1,0 +1,27 @@
+{
+  "name": "ddd-evaluator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Level 1 evaluator agent for the Talencia Global DDD Agentic Roadmap: 3 raters + 1 consolidator score a schema or output against its frozen scorecard.",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "shared",
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev -w server",
+    "dev:web": "npm run dev -w web",
+    "build": "npm run build -w web",
+    "start": "npm run start -w server",
+    "test": "npm run test -w server && npm run test -w web",
+    "typecheck": "npm run typecheck -w shared && npm run typecheck -w server && npm run typecheck -w web",
+    "db:migrate": "npm run db:migrate -w server",
+    "models:check": "npm run models:check -w server",
+    "evaluate": "npm run evaluate -w server --",
+    "docs:check": "node scripts/checkDocs.mjs"
+  }
+}

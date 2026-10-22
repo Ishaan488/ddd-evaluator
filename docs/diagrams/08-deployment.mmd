@@ -1,0 +1,38 @@
+flowchart LR
+  subgraph USERS["Users"]
+    B["Browser"]
+  end
+
+  subgraph HOST["One machine (laptop or VM)"]
+    direction TB
+    PX["Reverse proxy with SSO / auth<br/><i>recommended in front for shared use,<br/>the app has no login of its own</i>"]
+    NODE["Node 22 process<br/><code>npm run start</code><br/>serves API and the built dashboard"]
+    subgraph DOCKER["docker compose up -d db"]
+      PGC[("Postgres 16<br/>volume: ddd_pgdata")]
+    end
+    ENV[".env<br/>DATABASE_URL · model API keys"]
+    UPL["data/uploads<br/>read-only copies"]
+  end
+
+  subgraph NET["Internet (HTTPS)"]
+    direction TB
+    P1["Groq API"]
+    P2["Gemini API"]
+    P3["Other OpenAI-compatible API"]
+  end
+
+  B --> PX --> NODE
+  B -. "local development: direct" .-> NODE
+  NODE --> PGC
+  NODE --> UPL
+  ENV -.-> NODE
+  NODE --> P1
+  NODE --> P2
+  NODE --> P3
+
+  classDef agent fill:#0f2a27,stroke:#2dd4bf,color:#ececf0
+  classDef store fill:#12151f,stroke:#7aa2f7,color:#ececf0
+  classDef ext fill:#1b1710,stroke:#f5b13d,color:#ececf0
+  class NODE agent
+  class PGC,UPL,ENV store
+  class P1,P2,P3 ext

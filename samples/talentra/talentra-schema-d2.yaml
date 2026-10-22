@@ -1,0 +1,237 @@
+# D2 · Schema scorecard for the Talentra Feature Discovery workbook (steps 01, 03 and 04).
+#
+# DRAFT FOR APPROVAL. The checks come from Part A of the workbook's own Scorecard sheet and
+# the six rater questions from its Part B. The weights, critical flags and anchors are a
+# proposal in the PDF's scorecard format. A mentor must approve them before they are relied on.
+
+x-bands: &strict            # how a pass ratio becomes a 0-5 score for code-measured dimensions
+  - { min: 1.00, score: 5 }
+  - { min: 0.97, score: 4 }
+  - { min: 0.90, score: 3 }
+  - { min: 0.75, score: 2 }
+  - { min: 0.01, score: 1 }
+
+x-exact: &exact             # structural rules that are either kept or broken
+  - { min: 1.00, score: 5 }
+  - { min: 0.01, score: 1 }
+
+scorecard:
+  id: SC-TALENTRA-D2
+  name: Talentra schema scorecard
+  version: "1.0"
+  judges: D1 schema design · Steps 01, 03, 04
+  step: "01 · 03 · 04"
+  frozen: true
+  approval: "Draft by the assistant, pending mentor approval"
+  thresholds: { accept: 90, refine: 75 }
+
+  artifact:
+    # Raters see only the columns listed here, which keeps the prompt small enough for every provider.
+    # Code checks still read the whole sheet, and sheets that are not listed here at all (such as the
+    # Schema register, a derived copy of the Tree), so raters are not sent them.
+    sheets:
+      - name: Tree
+        header_row: 1
+        columns: [Path id, Level, Name, Definition, Data type, Required, Allowed values, Example]
+      - name: Allowed values
+        header_row: 1
+        columns: [List, Value, Meaning]
+    context_sheets:
+      - name: Stage 1 steps
+        header_row: 4
+        columns: [Step, Name, Purpose, Do, Produce, Done when]
+      - name: Playbook map
+        header_row: 4
+        columns: [Playbook column, Playbook words, Section ID]
+
+  dimensions:
+    # ---------------------------------------------------------------- counted by code
+    - id: C01
+      name: Tree depth
+      weight: 5
+      critical: true
+      measured_by: code
+      measure: Nodes at level 3 or above, as a share of all nodes
+      check:
+        id: max_value
+        params: { sheet: Tree, column: Level, max: 3 }
+        bands: *exact
+        fix: Flatten the tree to three levels (macro, micro, nano).
+
+    - id: C02
+      name: Every node is defined
+      weight: 8
+      critical: true
+      measured_by: code
+      measure: Nodes with a definition, as a share of all nodes
+      check:
+        id: column_filled
+        params: { sheet: Tree, column: Definition }
+        bands: *strict
+        fix: Write a one-sentence definition for each listed node.
+
+    - id: C03
+      name: Every sub-parameter has a data type
+      weight: 4
+      measured_by: code
+      check:
+        id: column_filled
+        params: { sheet: Tree, column: Data type, where: { column: Level, equals: 3 } }
+        bands: *strict
+        fix: Give each level-3 node a data type.
+
+    - id: C04
+      name: Every sub-parameter becomes a table column
+      weight: 4
+      measured_by: code
+      check:
+        id: column_filled
+        params: { sheet: Tree, column: Column, where: { column: Level, equals: 3 } }
+        bands: *strict
+        fix: Name the table column for each level-3 node.
+
+    - id: C05
+      name: Path ids are unique
+      weight: 6
+      critical: true
+      measured_by: code
+      check:
+        id: unique
+        params: { sheet: Tree, column: Path id }
+        bands: *exact
+        fix: Give each node its own path id.
+
+    - id: C06
+      name: Allowed-value links resolve
+      weight: 5
+      critical: true
+      measured_by: code
+      measure: 'References written as "list: Name" that name a list which exists exactly'
+      check:
+        id: list_refs_resolve
+        params:
+          { sheet: Tree, column: Allowed values, prefix: "list:", lists_sheet: Allowed values, lists_column: List }
+        bands: *strict
+        fix: 'Make the reference exactly "list: <ListName>" and put any rule in a separate column.'
+
+    - id: C07
+      name: Every allowed-value list is used
+      weight: 3
+      measured_by: code
+      check:
+        id: lists_referenced
+        params:
+          { sheet: Tree, column: Allowed values, prefix: "list:", lists_sheet: Allowed values, lists_column: List }
+        bands: *strict
+        fix: Point a field at the list, or remove the list.
+
+    - id: C08
+      name: Every register column has a reason
+      weight: 4
+      measured_by: code
+      measure: Register rows tied to a sub-parameter or marked as a key
+      check:
+        id: any_filled
+        params: { sheet: Schema register, columns: [Used by id, Key] }
+        bands: *strict
+        fix: Tie the column to a sub-parameter or mark it as a key, or delete it.
+
+    - id: C09
+      name: Every choice field points to a list
+      weight: 3
+      measured_by: code
+      measure: 'Enum sub-parameters whose allowed values are written as "list: Name"'
+      check:
+        id: column_filled
+        params: { sheet: Tree, column: Allowed values, pattern: "^list:", where: { column: Data type, equals: enum } }
+        bands: *strict
+        fix: Point the enum field at an allowed-value list.
+
+    # ------------------------------------------------------------ judged by the 3 raters
+    - id: J01
+      name: A newcomer could fill it in unaided
+      weight: 10
+      measured_by: raters
+      measure: Could a new team member read the Tree and know what to record, without asking?
+      anchors:
+        5: Every parameter says what to record, in what form, with an example where the form is not obvious.
+        4: Almost all parameters are clear; a few need a short explanation.
+        3: Most are clear, but several need the author to explain.
+        2: Many parameters are ambiguous without help from the author.
+        1: A newcomer could not fill most of it in unaided.
+        0: Unusable without the author.
+
+    - id: J02
+      name: Definitions are one clear sentence
+      weight: 8
+      measured_by: raters
+      measure: Is each definition one clear sentence, with no unexplained jargon?
+      anchors:
+        5: Every definition is one plain sentence and all terms are explained or obvious.
+        4: Nearly all are one plain sentence; a few use unexplained terms.
+        3: Many definitions are long, circular or use unexplained terms.
+        2: Most definitions are vague, circular or jargon-heavy.
+        1: Definitions mostly repeat the parameter name.
+        0: Definitions are missing or meaningless.
+
+    - id: J03
+      name: Every sub-parameter earns its place
+      weight: 6
+      measured_by: raters
+      measure: Is each sub-parameter needed, with none that duplicate another?
+      anchors:
+        5: Each sub-parameter is needed and none overlap.
+        4: One or two are marginal or overlap slightly.
+        3: Several are marginal or duplicate each other.
+        2: Many are redundant or unnecessary.
+        1: Most of the tree is padding.
+        0: The tree cannot be justified.
+
+    - id: J04
+      name: Nothing the playbook or brief asked for is missing
+      weight: 12
+      critical: true
+      measured_by: raters
+      measure: Does the schema cover what the playbook row for each step asks to be produced?
+      anchors:
+        5: Every playbook "do", "produce" and "done when" point maps to a section or parameter.
+        4: One minor point is thin or only partly covered.
+        3: One point is missing, or several are only partly covered.
+        2: Several points are missing.
+        1: Most points are missing.
+        0: The schema does not address the playbook.
+      return_to: Define
+
+    - id: J05
+      name: Allowed-value lists are complete and distinct
+      weight: 6
+      measured_by: raters
+      measure: Are the lists complete, with no overlapping or ambiguous values?
+      anchors:
+        5: Lists cover every real case, values are mutually exclusive and each has a meaning.
+        4: One or two values overlap slightly or one real case is missing.
+        3: Several lists have overlaps or gaps.
+        2: Many lists are incomplete or ambiguous.
+        1: Lists are mostly unusable.
+        0: Lists are missing.
+
+    - id: J06
+      name: Two people would fill a record the same way
+      weight: 6
+      measured_by: raters
+      measure: Are the rules tight enough that independent authors would record the same value?
+      anchors:
+        5: Rules, formats and lists leave almost no room for different answers.
+        4: A few fields could be read in two ways.
+        3: Several fields could be filled differently by different people.
+        2: Many fields depend on the author's judgement.
+        1: Two people would rarely agree.
+        0: There are no rules to follow.
+
+    # ---------------------------------------------------------------- only a person can
+    - id: H01
+      name: Author understanding
+      weight: 10
+      critical: true
+      measured_by: human
+      needs: A scored author interview (0-5) run by the mentor. No edit to the document can prove the author understands it.

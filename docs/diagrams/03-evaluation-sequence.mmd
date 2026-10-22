@@ -1,0 +1,36 @@
+sequenceDiagram
+  autonumber
+  actor Au as Author
+  participant UI as Dashboard
+  participant API as API routes
+  participant SV as EvaluationService
+  participant AG as Evaluator agent
+  participant RT as Raters A, B, C
+  participant CO as Consolidator K
+  participant DB as Postgres
+
+  Au->>UI: drop workbook + frozen scorecard
+  UI->>API: POST /api/runs (multipart)
+  API->>SV: submit()
+  Note over SV: parse scorecard · check it is frozen · check the roster<br/>open the workbook · check the sheets it names exist
+  SV->>DB: create run (queued), next iteration number
+  SV-->>API: run id
+  API-->>UI: 202 Accepted
+  UI->>API: GET /api/runs/:id every 1.5 s
+
+  Note over SV,AG: runs in the background after the 202
+  SV->>AG: evaluate()
+  Note over AG: freeze: read once, SHA-256 of workbook and scorecard<br/>count: exact checks scored in code
+  par three blind raters in parallel
+    AG->>RT: same prompt (scorecard + artifact + sources)
+    RT-->>AG: JSON: 0-5 per dimension, cited cells, findings
+  end
+  Note over AG: keep only claims whose cited cell really exists
+  AG->>CO: three validated results + artifact
+  CO-->>AG: reconciled scores, merged findings
+  Note over AG: enforce the rules: range check, lower score stands, verdict by code<br/>re-hash the workbook, abort if it changed
+  AG-->>SV: evaluation (scores, findings, run log)
+  SV->>DB: store run, dimension scores, findings, every model call
+  UI->>API: GET /api/runs/:id
+  API->>DB: load run + human evidence + override
+  API-->>UI: report (verdict, scores, findings, path to green)

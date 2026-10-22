@@ -1,0 +1,11 @@
+{
+  "approved": ["mock:*"],
+  "providers": { "mock": { "type": "mock" } },
+  "raters": [
+    { "id": "A", "provider": "mock", "model": "mock-mid", "family": "mock-meta" },
+    { "id": "B", "provider": "mock", "model": "mock-lenient", "family": "mock-google" },
+    { "id": "C", "provider": "mock", "model": "mock-strict", "family": "mock-openai" }
+  ],
+  "consolidator": { "id": "K", "provider": "mock", "model": "mock-consolidator", "family": "mock-alibaba" },
+  "settings": { "temperature": 0, "maxOutputTokens": 8192, "timeoutMs": 120000, "retries": 0 }
+}

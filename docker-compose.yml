@@ -1,0 +1,24 @@
+# Postgres for the evaluator. Start it with:  docker compose up -d db
+# Then set DATABASE_URL=postgres://ddd:ddd@localhost:5432/ddd in .env and run:  npm run start
+# Look at the data with any Postgres client (DBeaver, TablePlus, pgAdmin, psql) on localhost:5432.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ddd-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ddd
+      POSTGRES_PASSWORD: ddd
+      POSTGRES_DB: ddd
+    ports:
+      - "5432:5432"
+    volumes:
+      - ddd_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ddd -d ddd"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  ddd_pgdata:

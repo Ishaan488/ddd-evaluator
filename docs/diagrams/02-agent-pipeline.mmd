@@ -1,0 +1,49 @@
+flowchart TD
+  IN["<b>Inputs</b><br/>workbook (.xlsx) · frozen scorecard · optional source documents"]
+
+  F["<b>1 · Freeze</b><br/>read once · SHA-256 of workbook and scorecard<br/>refuse an unfrozen scorecard or an invalid roster<br/>check every sheet the scorecard names exists"]
+
+  C["<b>2 · Count in code</b><br/>exact checks give a pass ratio per dimension<br/>bands turn the ratio into a 0-5 score"]
+
+  R["<b>3 · Rate</b>  three blind raters, three model families, in parallel<br/>same prompt · JSON only · 0-5 per dimension · cite a cell"]
+
+  EV{"Citation valid?<br/>sheet and cell exist<br/>quote really in the cell"}
+  DISC["Discard the claim<br/>(logged, counted in the report)"]
+
+  K["<b>4 · Consolidate</b>  a fourth model reconciles the three scorecards<br/>merges duplicate findings"]
+
+  RULES["Code enforces the PDF rules<br/>score inside the raters' range<br/>gap over 1 point needs cited evidence<br/>otherwise the lower score stands and a person is asked"]
+
+  D["<b>5 · Decide in code</b><br/>weighted score · critical gates need 4+<br/>human-only evidence supplied?"]
+
+  OUT{"Verdict"}
+  GRN["GREEN<br/>moves on once a person confirms"]
+  AMB["AMBER<br/>fix findings, peer review, resubmit"]
+  RED["RED<br/>back to Discover or Define with a mentor"]
+
+  REPT["<b>6 · Report</b><br/>eight sections · .xlsx + .md + .json<br/>path to green · full run log in Postgres"]
+
+  FREEZE2["Re-hash the workbook<br/>abort if it changed mid-run"]
+
+  IN --> F --> C --> R --> EV
+  EV -- no --> DISC --> K
+  EV -- yes --> K
+  K --> RULES --> D --> OUT
+  OUT --> GRN
+  OUT --> AMB
+  OUT --> RED
+  GRN --> FREEZE2
+  AMB --> FREEZE2
+  RED --> FREEZE2
+  FREEZE2 --> REPT
+
+  classDef step fill:#0f2a27,stroke:#2dd4bf,color:#ececf0
+  classDef gate fill:#14141a,stroke:#7aa2f7,color:#ececf0
+  classDef good fill:#0f2218,stroke:#3ecf8e,color:#ececf0
+  classDef warn fill:#262010,stroke:#f5b13d,color:#ececf0
+  classDef bad fill:#2a1413,stroke:#f2655c,color:#ececf0
+  class F,C,R,K,D,REPT step
+  class EV,OUT gate
+  class GRN good
+  class AMB warn
+  class RED,DISC bad
