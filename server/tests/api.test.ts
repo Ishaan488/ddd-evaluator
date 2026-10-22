@@ -50,10 +50,11 @@ async function start(models = mockModels()): Promise<Harness> {
   };
 }
 
-async function submit(h: Harness, files: { workbook?: Buffer; scorecard?: string; name?: string; scorecardName?: string; projectName?: string }) {
+async function submit(h: Harness, files: { workbook?: Buffer; scorecard?: string | Buffer; name?: string; scorecardName?: string; projectName?: string; instructions?: string }) {
   const form = new FormData();
   if (files.workbook) form.append('workbook', new Blob([new Uint8Array(files.workbook)]), files.name ?? 'schema.xlsx');
-  if (files.scorecard !== undefined) form.append('scorecard', new Blob([files.scorecard]), files.scorecardName ?? 'scorecard.yaml');
+  if (files.scorecard !== undefined) form.append('scorecard', new Blob([typeof files.scorecard === 'string' ? files.scorecard : new Uint8Array(files.scorecard)]), files.scorecardName ?? 'scorecard.yaml');
+  if (files.instructions !== undefined) form.append('instructions', files.instructions);
   if (files.projectName) form.append('projectName', files.projectName);
   const res = await fetch(`${h.base}/api/runs`, { method: 'POST', body: form });
   return { status: res.status, body: (await res.json()) as { runId?: string; iteration?: number; projectId?: string; error?: string } };
@@ -195,6 +196,61 @@ describe('API', () => {
   });
 });
 
+describe('Excel scorecards and the instructions box', () => {
+  it('accepts a scorecard written in Excel and runs it exactly like the same scorecard in YAML', async () => {
+    const { parseScorecard } = await import('../src/scorecard/parse.js');
+    const { scorecardToWorkbook } = await import('../src/scorecard/excel.js');
+    const excel = await scorecardToWorkbook(parseScorecard(scorecard).scorecard);
+    const viaYaml = await submit(h, { workbook: talentra, scorecard, projectName: 'Same card' });
+    const viaExcel = await submit(h, { workbook: talentra, scorecard: excel, scorecardName: 'scorecard.xlsx', projectName: 'Same card' });
+    expect(viaExcel.status).toBe(202);
+    const [a, b] = [await done(h, viaYaml.body.runId!), await done(h, viaExcel.body.runId!)];
+    expect(b.status).toBe('done');
+    expect(b.report!.header.scorecardHash).toBe(a.report!.header.scorecardHash);
+    expect(b.report!.verdict.weightedScore).toBe(a.report!.verdict.weightedScore);
+  });
+
+  it('tells the person which Excel row to fix', async () => {
+    const bad = await makeWorkbook({
+      Scorecard: [['Setting', 'Value'], ['id', 'X'], ['version', '1'], ['judges', 'D1'], ['frozen', 'yes']],
+      Sheets: [['Sheet'], ['Tree']],
+      Dimensions: [['ID', 'Name', 'Weight'], ['C01', 'Thing', 'lots']],
+    });
+    const res = await submit(h, { workbook: await makeWorkbook({ Tree: CLEAN_TREE }), scorecard: bad, scorecardName: 'bad.xlsx' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/bad\.xlsx does not match the scorecard format.*Dimensions sheet, row 2 \(C01\): Weight:/s);
+  });
+
+  it('serves a starter Excel scorecard that is valid as it stands', async () => {
+    const response = await fetch(`${h.base}/api/scorecard-template.xlsx`);
+    expect(response.headers.get('content-disposition')).toMatch(/scorecard-template\.xlsx/);
+    const { parseScorecardFile } = await import('../src/scorecard/parse.js');
+    const { scorecard: parsed } = await parseScorecardFile(Buffer.from(await response.arrayBuffer()), 'scorecard-template.xlsx');
+    expect(parsed.frozen).toBe(true);
+    expect(parsed.dimensions.map((d) => d.measuredBy)).toEqual(['code', 'raters', 'human']);
+    // and it really runs, against a workbook that has the sheet and column it names
+    const res = await submit(h, { workbook: await makeWorkbook({ Tree: CLEAN_TREE }), scorecard: Buffer.from(await (await fetch(`${h.base}/api/scorecard-template.xlsx`)).arrayBuffer()), scorecardName: 'template.xlsx', projectName: 'From template' });
+    expect(res.status).toBe(202);
+    expect((await done(h, res.body.runId!)).status).toBe('done');
+  });
+
+  it('records the extra instructions with the run and shows them in the report header', async () => {
+    const res = await submit(h, { workbook: await makeWorkbook({ Tree: CLEAN_TREE }), scorecard: CLEAN_SCORECARD_YAML, projectName: 'With notes', instructions: '  Focus on the Definition column.  ' });
+    const run = await done(h, res.body.runId!);
+    expect(run.report!.header.instructions).toBe('Focus on the Definition column.');
+    expect(run.report!.header.instructionsHash).toMatch(/^[0-9a-f]{64}$/);
+    const none = await done(h, (await submit(h, { workbook: await makeWorkbook({ Tree: CLEAN_TREE }), scorecard: CLEAN_SCORECARD_YAML, projectName: 'No notes' })).body.runId!);
+    expect(none.report!.header.instructions).toBeUndefined();
+    expect(none.report!.header.instructionsHash).toBeUndefined();
+  });
+
+  it('refuses instructions that are too long, with the numbers', async () => {
+    const res = await submit(h, { workbook: await makeWorkbook({ Tree: CLEAN_TREE }), scorecard: CLEAN_SCORECARD_YAML, instructions: 'x'.repeat(4001) });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/4001 characters; the limit is 4000/);
+  });
+});
+
 describe('history across iterations', () => {
   it('numbers the iterations, tracks the score and shows what was fixed, what stayed and what is new', async () => {
     const project = 'Iterating';
@@ -230,7 +286,7 @@ describe('history across iterations', () => {
   it('marks runs left unfinished by a crashed server as failed on the next start', async () => {
     const created = await h.store.createRun({
       projectName: 'Orphan', gate: 'D1', scorecard: (await import('../src/scorecard/parse.js')).parseScorecard(CLEAN_SCORECARD_YAML).scorecard,
-      scorecardHash: 'h', sources: '', artifactName: 'a.xlsx', artifactHash: 'h', artifactPath: '/x', progress: { participants: [] },
+      scorecardHash: 'h', sources: '', instructions: '', artifactName: 'a.xlsx', artifactHash: 'h', artifactPath: '/x', progress: { participants: [] },
     });
     await h.store.setStage(created.runId, 'rating');
     expect(await h.store.failInterrupted()).toBeGreaterThanOrEqual(1);

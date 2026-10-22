@@ -10,7 +10,7 @@ import { createProviderFactory } from './llm/registry.js';
 import { assembleReport } from './report/assemble.js';
 import { renderMarkdown } from './report/markdown.js';
 import { renderXlsx } from './report/xlsx.js';
-import { parseScorecard } from './scorecard/parse.js';
+import { parseScorecardFile } from './scorecard/parse.js';
 import { UserError } from './util/errors.js';
 
 /** npm runs workspace scripts from server/, so paths are resolved from where the command was typed. */
@@ -20,8 +20,9 @@ export const resolveFromUser = (file: string, env: NodeJS.ProcessEnv = process.e
 const USAGE = `Usage: npm run evaluate -- --workbook <file.xlsx> --scorecard <file.yaml> [options]
 
   --workbook   the schema or output workbook to evaluate
-  --scorecard  the frozen scorecard (YAML or JSON)
+  --scorecard  the frozen scorecard (.xlsx, .yaml or .json)
   --sources    optional text file with the problem statement or docket
+  --instructions  optional extra instructions for the examiners (text, or @file to read a file)
   --out        folder for report.xlsx, report.md and report.json (default ./data/cli/<run id>)
   --mock       use the scripted mock models instead of live APIs
   --models     path to a models config (default server/config/models.json)`;
@@ -32,6 +33,7 @@ async function main(): Promise<void> {
       workbook: { type: 'string' },
       scorecard: { type: 'string' },
       sources: { type: 'string' },
+      instructions: { type: 'string' },
       out: { type: 'string' },
       mock: { type: 'boolean', default: false },
       models: { type: 'string' },
@@ -48,8 +50,11 @@ async function main(): Promise<void> {
   const models = values.models ? loadModelsConfig(resolveFromUser(values.models)) : config.models;
   const workbookPath = resolveFromUser(values.workbook);
   const scorecardPath = resolveFromUser(values.scorecard);
-  const parsed = parseScorecard(await readFile(scorecardPath, 'utf8'), path.basename(scorecardPath));
+  const parsed = await parseScorecardFile(await readFile(scorecardPath), path.basename(scorecardPath));
   const sources = values.sources ? await readFile(resolveFromUser(values.sources), 'utf8') : '';
+  const instructions = values.instructions?.startsWith('@')
+    ? await readFile(resolveFromUser(values.instructions.slice(1)), 'utf8')
+    : (values.instructions ?? '');
 
   const runId = randomUUID();
   const out = values.out ? resolveFromUser(values.out) : path.join(config.dataDir, 'cli', runId);
@@ -64,6 +69,7 @@ async function main(): Promise<void> {
     scorecard: parsed.scorecard,
     scorecardHash: parsed.hash,
     sources,
+    instructions,
     models,
     providers: createProviderFactory(models, { env, mockDelayMs: 0 }),
     env,

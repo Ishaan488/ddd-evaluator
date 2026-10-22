@@ -1,24 +1,31 @@
+/*
+ * Design tokens. Everything visual is built from these: colour, one typeface, a type scale,
+ * a spacing scale, radii, shadows and motion. Change a value here and the whole app follows.
+ */
 :root {
   color-scheme: dark;
 
-  /* surfaces */
+  /* ------------------------------ colour ------------------------------ */
   --bg: #08080a;
   --surface: #0f0f12;
   --surface-2: #141418;
   --surface-3: #1a1a1f;
+  --surface-4: #212127;
   --border: #222228;
-  --border-strong: #2f2f37;
+  --border-strong: #303039;
+  --border-hover: #40404b;
 
-  /* text */
-  --text: #ececf0;
-  --text-2: #b4b4be;
-  --muted: #8a8a96;
-  --faint: #5f5f6a;
+  --text: #f0f0f4;
+  --text-2: #bdbdc7;
+  --muted: #8e8e9a;
+  --faint: #656571;
 
   /* the agent colour (PDF: "teal = agents") */
   --accent: #2dd4bf;
+  --accent-strong: #5eead4;
   --accent-dim: rgba(45, 212, 191, 0.12);
-  --accent-line: rgba(45, 212, 191, 0.35);
+  --accent-line: rgba(45, 212, 191, 0.38);
+  --accent-ink: #04201c;
 
   /* verdicts: used for nothing else */
   --green: #3ecf8e;
@@ -27,17 +34,50 @@
   --amber-dim: rgba(245, 177, 61, 0.12);
   --red: #f2655c;
   --red-dim: rgba(242, 101, 92, 0.12);
-
-  /* severity reuses the same hues, so HIGH reads as red, MEDIUM as amber, LOW as neutral */
   --blue: #7aa2f7;
 
-  --font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  /* ----------------------- one typeface, everywhere ----------------------- */
+  --font: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
-  --radius: 12px;
-  --radius-sm: 8px;
-  --radius-xs: 6px;
-  --sidebar: 244px;
-  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 12px 32px rgba(0, 0, 0, 0.35);
-  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  /* type scale */
+  --text-xs: 0.8125rem;   /* 13px  labels, table headings, captions */
+  --text-sm: 0.875rem;    /* 14px  secondary text */
+  --text-base: 1rem;      /* 16px  body */
+  --text-md: 1.0625rem;   /* 17px  emphasis */
+  --text-lg: 1.25rem;     /* 20px  card titles */
+  --text-xl: 1.5rem;      /* 24px  */
+  --text-2xl: 2rem;       /* 32px  page titles */
+  --text-3xl: 2.5rem;     /* 40px  big numbers */
+
+  /* ---------------------------- spacing scale ---------------------------- */
+  --space-1: 0.25rem;   /*  4 */
+  --space-2: 0.5rem;    /*  8 */
+  --space-3: 0.75rem;   /* 12 */
+  --space-4: 1rem;      /* 16 */
+  --space-5: 1.25rem;   /* 20 */
+  --space-6: 1.5rem;    /* 24 */
+  --space-7: 2rem;      /* 32 */
+  --space-8: 2.5rem;    /* 40 */
+  --space-9: 3rem;      /* 48 */
+  --space-10: 4rem;     /* 64 */
+
+  /* ------------------------------- shape ------------------------------- */
+  --radius: 18px;
+  --radius-md: 14px;
+  --radius-sm: 11px;
+  --radius-xs: 8px;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 20px 48px rgba(0, 0, 0, 0.45);
+  --shadow-sm: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --glow: 0 10px 28px -10px rgba(45, 212, 191, 0.55);
+
+  /* ------------------------------- layout ------------------------------- */
+  --sidebar: 288px;
+  --content-max: 1280px;
+  --gutter: 3.5rem;
+
+  /* ------------------------------- motion ------------------------------- */
+  --ease: cubic-bezier(0.22, 0.8, 0.24, 1);
+  --fast: 0.16s;
+  --base: 0.26s;
+  --slow: 0.7s;
 }

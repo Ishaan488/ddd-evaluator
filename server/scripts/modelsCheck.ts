@@ -64,7 +64,7 @@ if (values.ping && roster.ready) {
         system: 'Reply with one JSON object and nothing else.',
         user: 'Return {"ok": true}.',
         temperature: 0,
-        maxOutputTokens: 64,
+        maxOutputTokens: 1024,
       });
       console.log(`  ✓ ${m.id} ${m.provider}/${m.model}  ${Date.now() - started} ms  ${reply.text.replace(/\s+/g, ' ').slice(0, 60)}`);
     } catch (error) {

@@ -23,6 +23,7 @@ export function renderMarkdown(report: Report): string {
     `| Raters | ${header.raters.map((r) => `${r.id}: ${r.provider}/${r.model}`).join(' · ')} |`,
     `| Consolidator | ${header.consolidator.provider}/${header.consolidator.model} |`,
     `| Prompts | ${header.promptVersion} |`,
+    ...(header.instructions ? [`| Extra instructions | ${cell(header.instructions)} (\`${(header.instructionsHash ?? '').slice(0, 12)}\`) |`] : []),
     `| Run | ${header.runId} · ${header.finishedAt} |`,
     '',
   );

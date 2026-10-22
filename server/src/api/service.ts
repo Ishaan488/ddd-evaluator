@@ -9,14 +9,16 @@ import { serializeSheets } from '../excel/serialize.js';
 import { WorkbookModel } from '../excel/workbook.js';
 import { assertRosterReady, inspectRoster } from '../llm/roster.js';
 import type { ProviderFactory } from '../llm/registry.js';
-import { parseScorecard } from '../scorecard/parse.js';
+import { parseScorecardFile } from '../scorecard/parse.js';
 import { sha256 } from '../util/hash.js';
 import { UserError, errorMessage } from '../util/errors.js';
 
 export interface SubmitInput {
   workbook: { name: string; buffer: Buffer };
-  scorecard: { name: string; text: string };
+  scorecard: { name: string; buffer: Buffer };
   sources: string;
+  /** Extra instructions for the examiners (the "prompt box"). */
+  instructions?: string;
   projectName?: string;
 }
 
@@ -27,6 +29,8 @@ export interface ServiceDeps {
   env: NodeJS.ProcessEnv;
   log?: (message: string) => void;
 }
+
+export const MAX_INSTRUCTIONS = 4000;
 
 const safeName = (name: string) => path.basename(name).replace(/[^\w.\- ]+/g, '_') || 'workbook.xlsx';
 
@@ -40,7 +44,11 @@ export class EvaluationService {
   constructor(private readonly deps: ServiceDeps) {}
 
   async submit(input: SubmitInput): Promise<{ runId: string; projectId: string; iteration: number }> {
-    const { scorecard, hash } = parseScorecard(input.scorecard.text, input.scorecard.name);
+    const { scorecard, hash } = await parseScorecardFile(input.scorecard.buffer, input.scorecard.name);
+    const instructions = (input.instructions ?? '').trim();
+    if (instructions.length > MAX_INSTRUCTIONS) {
+      throw new UserError(`The extra instructions are ${instructions.length} characters; the limit is ${MAX_INSTRUCTIONS}. Shorten them.`);
+    }
     if (!scorecard.frozen) {
       throw new UserError('This scorecard is not frozen. Set `frozen: true` once it is approved, so the target cannot move mid-evaluation.');
     }
@@ -73,13 +81,13 @@ export class EvaluationService {
 
     const created = await this.deps.store.createRun(
       {
-        projectName, step: scorecard.step, gate: scorecard.gate, scorecard, scorecardHash: hash, sources: input.sources,
+        projectName, step: scorecard.step, gate: scorecard.gate, scorecard, scorecardHash: hash, sources: input.sources, instructions,
         artifactName: name, artifactHash: sha256(input.workbook.buffer), artifactPath: workbookPath, progress,
       },
       runId,
     );
 
-    const job = this.execute(created.runId, projectName, created.iteration, workbookPath, name, input.sources, scorecard, hash, progress)
+    const job = this.execute(created.runId, projectName, created.iteration, workbookPath, name, input.sources, instructions, scorecard, hash, progress)
       .catch((error) => this.deps.log?.(`run ${runId} crashed: ${errorMessage(error)}`))
       .finally(() => this.running.delete(job));
     this.running.add(job);
@@ -98,6 +106,7 @@ export class EvaluationService {
     workbookPath: string,
     artifactName: string,
     sources: string,
+    instructions: string,
     scorecard: Parameters<typeof evaluate>[0]['scorecard'],
     scorecardHash: string,
     progress: RunProgress,
@@ -124,7 +133,7 @@ export class EvaluationService {
 
     try {
       const output = await evaluate({
-        runId, projectName, iteration, workbookPath, artifactName, scorecard, scorecardHash, sources,
+        runId, projectName, iteration, workbookPath, artifactName, scorecard, scorecardHash, sources, instructions,
         models: config.models, providers, env, onProgress,
       });
       await chain;

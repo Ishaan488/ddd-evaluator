@@ -84,6 +84,7 @@ export interface NewRun {
   scorecard: Scorecard;
   scorecardHash: string;
   sources: string;
+  instructions: string;
   artifactName: string;
   artifactHash: string;
   artifactPath: string;
@@ -107,11 +108,11 @@ export class Store {
       const iteration = Number(last?.last ?? 0) + 1;
       await tx.query(
         `insert into runs (id, project_id, iteration, status, stage, gate, scorecard_id, scorecard_version, scorecard_hash,
-           scorecard, sources, artifact_name, artifact_hash, artifact_path, progress)
-         values ($1,$2,$3,'queued','queued',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+           scorecard, sources, instructions, artifact_name, artifact_hash, artifact_path, progress)
+         values ($1,$2,$3,'queued','queued',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
         [
           runId, project.id, iteration, input.gate, input.scorecard.id, input.scorecard.version, input.scorecardHash,
-          json(input.scorecard), input.sources, input.artifactName, input.artifactHash, input.artifactPath, json(input.progress),
+          json(input.scorecard), input.sources, input.instructions, input.artifactName, input.artifactHash, input.artifactPath, json(input.progress),
         ],
       );
       return { runId, projectId: project.id, iteration };

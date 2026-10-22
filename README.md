@@ -163,8 +163,13 @@ npm run start
 
 ```bash
 npm run evaluate -- --workbook samples/talentra/Talentra-Feature-Discovery-Dashboard.xlsx \
-                    --scorecard samples/talentra/talentra-schema-d2.yaml --mock
+                    --scorecard samples/talentra/talentra-schema-d2.xlsx --mock \
+                    --instructions "Be strict about definitions."       # optional
 ```
+
+**The scorecard can be an Excel file or YAML.** Download a ready-to-edit Excel template from the *New evaluation* page, or use
+`samples/talentra/talentra-schema-d2.xlsx`. Both formats give the identical scorecard. The page also has a box for **extra
+instructions** to the examiners, which are saved with the result. See [docs/scorecard-reference.md](docs/scorecard-reference.md).
 
 Full setup, configuration and troubleshooting: [docs/operations.md](docs/operations.md).
 
@@ -187,7 +192,7 @@ ddd/
 │   ├── diagrams/                   Mermaid sources + render.sh
 │   └── images/                     rendered diagrams and dashboard screenshots
 │
-├── samples/talentra/             the Talentra workbook and two DRAFT scorecards (need mentor approval)
+├── samples/talentra/             the Talentra workbook and two DRAFT scorecards, each as .yaml and .xlsx (need mentor approval)
 │
 ├── scripts/                      checkDocs.mjs: verifies every doc link, anchor, path and folder tree
 │
@@ -195,7 +200,7 @@ ddd/
 │
 ├── server/
 │   ├── config/                     models.json (live roster) · models.mock.json (demo roster)
-│   ├── scripts/                    modelsCheck.ts · seedDemo.ts · patchCells.ts
+│   ├── scripts/                    modelsCheck.ts · seedDemo.ts · patchCells.ts · scorecardToExcel.ts
 │   ├── src/
 │   │   ├── agent/                  ★ the evaluator agent
 │   │   ├── api/                    Express routes and EvaluationService
@@ -203,9 +208,9 @@ ddd/
 │   │   ├── excel/                  read-only .xlsx reader and the text the raters are sent
 │   │   ├── llm/                    Groq / Gemini / OpenAI-compatible adapters, roster rules, mock provider
 │   │   ├── report/                 the eight-section report as .xlsx and .md
-│   │   ├── scorecard/              scorecard parsing and hashing
+│   │   ├── scorecard/              scorecard parsing and hashing (YAML, JSON or Excel)
 │   │   └── util/
-│   └── tests/                    128 tests
+│   └── tests/                    157 tests
 │
 └── web/src/                      the dashboard
     ├── pages/                      Projects · New evaluation · Run · Project history · Models
@@ -223,12 +228,12 @@ ddd/
 | [docs/operations.md](docs/operations.md) | Setup, configuration, models, database, cost, backup, troubleshooting |
 | [docs/security.md](docs/security.md) | Controls, trust boundaries, and the gaps to close before real client data |
 | [docs/pdf-traceability.md](docs/pdf-traceability.md) | The Agentic Roadmap PDF, page by page: done, partial, not built |
-| [docs/decisions.md](docs/decisions.md) | Fourteen design decisions with reasons |
+| [docs/decisions.md](docs/decisions.md) | Fifteen design decisions with reasons |
 | [docs/development.md](docs/development.md) | Conventions, tests, recipes, definition of done |
 
 ## Technology
 
-TypeScript (strict) on Node 22 · Express 5 · React 19 + Vite + React Router · Postgres 16 (Docker), plain SQL ·
+TypeScript (strict) on Node 22 · Express 5 · React 19 + Vite + React Router (plain CSS on design tokens, one bundled typeface, Inter) · Postgres 16 (Docker), plain SQL ·
 Zod validation at every boundary · Vitest. Models over plain HTTPS: Groq and any OpenAI-compatible API, and Gemini.
 No agent framework and no ORM; the reasons are in [docs/decisions.md](docs/decisions.md).
 
@@ -236,7 +241,7 @@ No agent framework and no ORM; the reasons are in [docs/decisions.md](docs/decis
 
 ```bash
 npm run typecheck      # shared, server, web
-npm test               # 128 server tests + 3 dashboard tests, all deterministic
+npm test               # 157 server tests + 3 dashboard tests, all deterministic
 npm run docs:check     # every doc link, anchor, path and folder tree is real
 ```
 
@@ -249,8 +254,8 @@ the provider adapters, the API, and iteration history. The same API tests pass o
 
 Read this before relying on a verdict.
 
-- **Not yet run against live Groq or Gemini.** I had no keys; adapters are tested against recorded response shapes.
-  Run `npm run models:check -- --ping` first. The default model names in `server/config/models.json` are unverified guesses.
+- **No full evaluation has been run on live models yet.** The roster in `server/config/models.json` answered a live
+  `models:check --ping` (one Groq key, one Gemini key), but a complete evaluation has only been run on scripted models. Model availability varies by account and over time, so re-run the ping on your own keys.
 - **The two scorecards are drafts** and say so in every report until your mentor approves them.
 - **Prompt size.** The Talentra schema prompt is about 13,400 tokens: fine for Gemini and paid Groq tiers, too big for
   Groq's free tier (such a rater fails early with a clear message). Sectioned evaluation is not built.

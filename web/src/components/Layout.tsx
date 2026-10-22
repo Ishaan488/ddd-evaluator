@@ -67,12 +67,16 @@ function Sidebar() {
 }
 
 export function Layout() {
+  const { pathname } = useLocation();
   return (
     <div className="shell">
       <Sidebar />
       <main className="main">
         <div className="main-inner">
-          <Outlet />
+          {/* Keyed by the address, so each page animates in when you navigate to it. */}
+          <div key={pathname} className="page">
+            <Outlet />
+          </div>
         </div>
       </main>
     </div>
@@ -159,9 +163,17 @@ export function ErrorBanner({ message, onRetry }: { message: string; onRetry?: (
 
 export function Loading({ label = 'Loading' }: { label?: string }) {
   return (
-    <div className="loading" role="status">
-      <span className="spinner" />
-      {label}…
+    <div className="loading" role="status" aria-live="polite">
+      <div className="loading-label">
+        <span className="spinner" />
+        {label}…
+      </div>
+      <div className="skeleton-row" aria-hidden="true">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="skeleton skeleton-stat" />
+        ))}
+      </div>
+      <div className="skeleton skeleton-card" aria-hidden="true" />
     </div>
   );
 }

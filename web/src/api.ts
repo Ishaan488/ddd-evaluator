@@ -48,6 +48,7 @@ export interface SubmitForm {
   scorecard: File;
   projectName: string;
   sources: string;
+  instructions: string;
 }
 
 export const api = {
@@ -62,6 +63,7 @@ export const api = {
     body.append('scorecard', form.scorecard);
     body.append('projectName', form.projectName);
     body.append('sources', form.sources);
+    body.append('instructions', form.instructions);
     return request<{ runId: string; projectId: string; iteration: number }>('/api/runs', { method: 'POST', body });
   },
 
@@ -70,6 +72,8 @@ export const api = {
 
   override: (runId: string, input: { decision: Decision; reason: string; by: string }) =>
     request<RunDetail>(`/api/runs/${runId}/override`, json(input)),
+
+  scorecardTemplateUrl: '/api/scorecard-template.xlsx',
 
   reportUrl: (runId: string, ext: 'xlsx' | 'md' | 'json') => `/api/runs/${runId}/report.${ext}`,
 };

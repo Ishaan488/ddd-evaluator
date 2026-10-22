@@ -155,6 +155,10 @@ process steps that need real deliverables and humans.
 
 ## Formats and prompts (p.17)
 
+Scorecards can also be written in **Excel**; that file is converted to exactly the same validated structure and hash, so the
+machine-readable, frozen, hashed scorecard the PDF asks for is unchanged (see
+[scorecard-reference.md](scorecard-reference.md#writing-a-scorecard-in-excel)).
+
 The scorecard example on page 17 is supported with **one addition**: an `artifact:` block that says which sheets
 the agent reads (the PDF's example does not need it because it shows no workbook). Everything else is accepted as the PDF
 writes it: `thresholds`, `critical`, `anchors` keyed 0-5, `measurable_by_agent: false`, and `judges: D1 schema · Step 01`. The rater and consolidator prompt patterns are
@@ -207,3 +211,4 @@ Choices made where the PDF is silent or where a stricter rule protects the PDF's
 | A critical dimension below 4 gives amber even if it scores 0 | Exactly the PDF's wording |
 | Zero successful raters fails the run instead of reporting | A report built on nothing would show a misleading red |
 | Scores shown rounded down; compared unrounded | 89.96 is never displayed as 90 |
+| An optional **extra instructions** input is given to the raters and the consolidator (the PDF's rater pattern lists only the scorecard, the artifact and the sources, "nothing else") | Requested by the lead (an Excel scorecard plus a prompt box). It is identical for all raters so blind rating holds, is saved with the run and hashed in the report header, and the prompt rules say it can never change the scale, the evidence rule or the score. Leave it empty to follow the PDF exactly |

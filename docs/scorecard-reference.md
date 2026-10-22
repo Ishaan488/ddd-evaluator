@@ -3,13 +3,18 @@
 A **scorecard** tells the evaluator what to judge and how. People write and freeze it before the thing it judges
 exists, so the target never moves (PDF p.3-4). The evaluator only reads it.
 
-A scorecard is a YAML (or JSON) file in the PDF's format (page 17). Two drafts to copy from:
-[`samples/talentra/talentra-schema-d2.yaml`](../samples/talentra/talentra-schema-d2.yaml) (judges a schema, D1) and
-[`samples/talentra/talentra-step04-d4.yaml`](../samples/talentra/talentra-step04-d4.yaml) (judges an output, D3).
+A scorecard is a YAML or JSON file in the PDF's format (page 17), **or an Excel workbook** with the same content
+(see [Writing a scorecard in Excel](#writing-a-scorecard-in-excel)). Both give exactly the same scorecard and the same
+hash. Two drafts to copy from, each in both formats:
+[`samples/talentra/talentra-schema-d2.yaml`](../samples/talentra/talentra-schema-d2.yaml) /
+[`.xlsx`](../samples/talentra/talentra-schema-d2.xlsx) (judges a schema, D1) and
+[`samples/talentra/talentra-step04-d4.yaml`](../samples/talentra/talentra-step04-d4.yaml) /
+[`.xlsx`](../samples/talentra/talentra-step04-d4.xlsx) (judges an output, D3).
 
 ## Contents
 
 - [A minimal example](#a-minimal-example)
+- [Writing a scorecard in Excel](#writing-a-scorecard-in-excel)
 - [Top-level fields](#top-level-fields)
 - [Which sheets the agent reads](#which-sheets-the-agent-reads)
 - [Dimensions](#dimensions)
@@ -61,6 +66,60 @@ scorecard:
       critical: true
       measured_by: human
       needs: A scored author interview (0-5) run by the mentor.
+```
+
+## Writing a scorecard in Excel
+
+If you would rather work in a spreadsheet, write the scorecard as an `.xlsx` and upload it where you would upload a
+YAML file. **Download a starter from the New evaluation page** (the link under the scorecard box, also
+`GET /api/scorecard-template.xlsx`). It is valid as it stands, includes a "How to fill" sheet, and has one dimension of each kind.
+
+The workbook has three sheets. Other sheets are ignored. Keep the titles in row 1 (case does not matter).
+
+**`Scorecard`** (two columns, `Setting` and `Value`):
+
+| Setting | Meaning |
+|---|---|
+| `id`, `version`, `judges` | Required. `judges` must start with `D1` (schema) or `D3` (output). Format the `version` cell as **Text**, or Excel turns `1.0` into `1` |
+| `name`, `step`, `approval` | Optional |
+| `frozen` | `yes` / `true`. Anything else (or blank) is treated as not frozen and the scorecard is refused |
+| `accept`, `refine` | Thresholds; default 90 and 75 |
+
+**`Sheets`** (which sheets of the evaluated workbook to read):
+
+| Column | Meaning |
+|---|---|
+| `Sheet` | The sheet name |
+| `Header row` | Row holding the column titles (default 1) |
+| `Columns` | Optional, comma-separated: the columns the examiners should see (blank = all) |
+| `Role` | `judged` (examiners score it) or `context` (reference material). Default `judged` |
+
+**`Dimensions`** (one row per dimension):
+
+| Column | Meaning |
+|---|---|
+| `ID`, `Name`, `Weight` | Required |
+| `Critical` | `yes` = must score 4 or more |
+| `Measured by` | `code`, `raters` or `human`. Blank is inferred: a `Check` means code, otherwise raters |
+| `Measure`, `Description` | Optional text shown to the examiners |
+| `Anchor 5` ... `Anchor 0` | For `raters`: what each score means. All six are required |
+| `Check` | For `code`: one of the [built-in checks](#built-in-checks) |
+| `Params` | For `code`: a **JSON object**, for example `{"sheet": "Tree", "column": "Definition"}` |
+| `Bands` | For `code`: `strict`, `exact`, or pairs such as `1:5, 0.97:4, 0.9:3, 0.01:1` (a pass ratio of at least the first number scores the second) |
+| `Fix` | For `code`: what to do when the check fails |
+| `Needs` | For `human`: what the person must supply |
+| `Return to` | `Discover`, `Define`, `Generate`, `Analyse`, `Validate` or `Refine` |
+
+The band presets are `strict` = `1:5, 0.97:4, 0.9:3, 0.75:2, 0.01:1` and `exact` = `1:5, 0.01:1` (one mistake fails it).
+`Bands` is required for a code dimension; there is no silent default.
+
+If something is wrong, the message names the sheet and row, for example
+`my.xlsx does not match the scorecard format: Dimensions sheet, row 7 (J03): the Anchor columns: anchor for score 3 is missing`.
+
+**Converting an existing YAML scorecard to Excel** (and the file reads back to the identical scorecard hash):
+
+```bash
+npm run scorecard:xlsx -- samples/talentra/talentra-schema-d2.yaml          # writes talentra-schema-d2.xlsx beside it
 ```
 
 ## Top-level fields
@@ -207,3 +266,4 @@ file does not change it, but changing a weight, anchor or threshold does.
 - Give every critical rater dimension anchors where **4** means "good, with one minor gap", because 4 is the gate.
 - Keep the rater prompt small with `columns` (a 169-node schema plus 194 allowed values is about 13,000 tokens).
 - Treat a scorecard like code: version it, review it, freeze it, then do not edit it. Change means a new `version`.
+- Excel or YAML is a matter of taste: they are interchangeable. Keep **one** of them as the master copy so they cannot drift apart.

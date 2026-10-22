@@ -34,6 +34,24 @@ describe('the eight-section report (PDF page 11)', () => {
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
   });
 
+  it('shows the extra instructions in both formats when there are some, and not otherwise', async () => {
+    const { evaluate } = await import('../src/agent/index.js');
+    const { createProviderFactory } = await import('../src/llm/registry.js');
+    const { mockModels, loadTalentraScorecard } = await import('./helpers.js');
+    const models = mockModels();
+    const parsed = await loadTalentraScorecard();
+    const out = await evaluate({ runId: 'r', projectName: 'p', iteration: 1, workbookPath: TALENTRA_XLSX, artifactName: 'a.xlsx', scorecard: parsed.scorecard, scorecardHash: parsed.hash, sources: '', instructions: 'Be strict about definitions.', models, providers: createProviderFactory(models, { mockDelayMs: 0 }), env: {} });
+    const report = assembleReport(out.core, [], null);
+    expect(renderMarkdown(report)).toMatch(/\| Extra instructions \| Be strict about definitions\. \(`[0-9a-f]{12}`\) \|/);
+    const book = new ExcelJS.Workbook();
+    await book.xlsx.load((await renderXlsx(report)) as unknown as ExcelJS.Buffer);
+    const rows = new Map<string, unknown>();
+    book.getWorksheet('1 Header')!.eachRow((row) => rows.set(String(row.getCell(1).value), row.getCell(2).value));
+    expect(rows.get('Extra instructions')).toBe('Be strict about definitions.');
+    const plain = assembleReport((await runEvaluation({ workbook: TALENTRA_XLSX })).core, [], null);
+    expect(renderMarkdown(plain)).not.toMatch(/Extra instructions/);
+  });
+
   it('shows each finding with its id, severity, location, fix and where to return to', async () => {
     const run = await runEvaluation({ workbook: TALENTRA_XLSX });
     const md = renderMarkdown(assembleReport(run.core, [], null));

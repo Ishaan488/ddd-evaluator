@@ -99,7 +99,8 @@ export function ProjectsPage() {
           </div>
 
           <Card flush>
-            <table className="table table-hover">
+            <div className="table-scroll">
+            <table className="table table-hover table-fit">
               <thead>
                 <tr>
                   <th>Project</th>
@@ -129,11 +130,12 @@ export function ProjectsPage() {
                     </td>
                     <td className="num">{p.runCount}</td>
                     <td className="mono faint">{p.latest?.scorecardId ?? '—'}</td>
-                    <td className="faint">{timeAgo(p.latest?.createdAt)}</td>
+                    <td className="faint nowrap">{timeAgo(p.latest?.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
           </Card>
         </>
       )}

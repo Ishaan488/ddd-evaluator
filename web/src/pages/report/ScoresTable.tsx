@@ -60,9 +60,11 @@ export function ScoresTable({ report }: { report: Report }) {
                   <td>
                     <div className="dim">
                       <span className="mono faint dim-id">{d.id}</span>
-                      <span className="dim-name">{d.name}</span>
-                      {d.critical && <span className="crit" title="Critical gate: needs 4 or more">★</span>}
-                      <ByChip by={d.measuredBy} />
+                      <span className="dim-main">
+                        <span className="dim-name">{d.name}</span>
+                        {d.critical && <span className="crit" title="Critical gate: needs 4 or more">★</span>}
+                        <ByChip by={d.measuredBy} />
+                      </span>
                     </div>
                   </td>
                   <td className="num faint">{d.weight}</td>

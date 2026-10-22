@@ -63,7 +63,7 @@ is checked in [architecture.md](architecture.md#dependency-rules).
 
 | | |
 |---|---|
-| **In** | The workbook file path · the parsed, frozen **scorecard** (and its hash) · optional **source documents** (text) · the model **roster** (3 raters + 1 consolidator) · a run id, project name and iteration number |
+| **In** | The workbook file path · the parsed, frozen **scorecard** (from an Excel, YAML or JSON file, and its hash) · optional **source documents** and optional **extra instructions** (text) · the model **roster** (3 raters + 1 consolidator) · a run id, project name and iteration number |
 | **Out** | `EvaluationOutput`: the immutable **core** (header, per-dimension results, findings, strengths, notes), one record per model call (prompt, raw reply, what was discarded), and a **run log** (models, hashes, timings, tokens) |
 | **Side effects** | None on the workbook. Progress events are sent to a callback so the dashboard can show live status. The agent itself does not touch the database. |
 
@@ -107,7 +107,8 @@ The three raters run **in parallel**, each in its own call, and each is sent exa
 - the frozen scorecard (only the dimensions measured by raters, with their 0-5 anchors),
 - the artifact: every non-empty cell written with its address, e.g. `H5="Which product..."`,
 - the context sheets and the source documents,
-- the instructions: *score each dimension 0-5 using only the anchors, cite the cell, never invent, reply with JSON only*.
+- the **extra instructions** the person typed when submitting (if any): the same words go to every rater and to the consolidator, and are saved in the report header with a hash,
+- the rules: *score each dimension 0-5 using only the anchors, cite the cell, never invent, reply with JSON only*. The rules also say the extra instructions may steer what to look at but can **never** change the anchors, the 0-5 scale, the evidence rule or the JSON format, and cannot say what score to give.
 
 Nothing else is in the prompt: no other rater's score, no author self-assessment, and no code-check results
 ("blind rating", PDF p.13). The scorecard's `columns` option trims what raters see so the prompt stays small.

@@ -19,6 +19,7 @@ something, the PDF wins and the decision says so.
 | [12](#adr-12-prompts-are-versioned-artifacts) | Prompts are versioned artifacts |
 | [13](#adr-13-a-scripted-mock-provider-is-part-of-the-product) | A scripted mock provider is part of the product |
 | [14](#adr-14-everything-the-agent-needs-lives-in-one-folder) | Everything the agent needs lives in one folder |
+| [15](#adr-15-excel-scorecards-and-an-extra-instructions-box) | Excel scorecards and an extra-instructions box |
 
 ---
 
@@ -186,3 +187,22 @@ agent, never the reverse.
 
 **Consequences.** One folder to read, review and test; the agent runs from the command line without a server. The
 dependency rule is documented in [architecture.md](architecture.md#dependency-rules).
+
+## ADR-15: Excel scorecards and an extra-instructions box
+
+**Context.** The lead asked for scoring that works from an Excel file and a prompt. A scorecard written only as free text
+cannot give repeatable weighted scores, critical gates, a rule-based verdict or a path to green, and the PDF requires a
+frozen, hashed, machine-readable scorecard (p.13, p.17). Authors also find a spreadsheet easier than YAML.
+
+**Decision.** Two additions, neither of which weakens the structured scorecard. (1) A scorecard can be written in **Excel**
+(three sheets: settings, sheets to read, dimensions). It is read into the same raw object as the YAML format and goes through the
+same validation and hashing, so an Excel and a YAML scorecard with the same content have the same hash (there is a test for
+this, and a converter in both directions). Mistakes are reported with the sheet and row. (2) An optional **extra instructions**
+box. Its text goes to every rater and the consolidator in identical words, is saved with the run and hashed in the report header,
+and the prompt rules state that it can steer what to look at but never change the scale, the evidence rule, the output format, or the score.
+
+**Consequences.** People can write scorecards in the tool they know, and add context ("treat column X as out of scope") without
+touching the scorecard. The PDF's rater pattern says "scorecard, artifact, sources, nothing else", so the instructions are a
+documented extension; leaving the box empty follows the PDF exactly. The instructions are not part of the frozen scorecard, so two
+runs of the same scorecard with different instructions are comparable only if the instructions are read alongside; the report shows them.
+An AI that *drafts a scorecard from a prompt* is deliberately not built: the PDF reserves that for Level 2.

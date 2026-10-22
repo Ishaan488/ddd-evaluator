@@ -18,7 +18,7 @@ ddd/
 │
 ├── server/
 │   ├── config/                   models.json (live roster) · models.mock.json (demo roster)
-│   ├── scripts/                  modelsCheck.ts · seedDemo.ts · patchCells.ts
+│   ├── scripts/                  modelsCheck.ts · seedDemo.ts · patchCells.ts · scorecardToExcel.ts
 │   ├── src/
 │   │   ├── agent/                ★ the evaluator agent (see agent.md)
 │   │   │   ├── checks/             built-in code checks
@@ -28,7 +28,7 @@ ddd/
 │   │   ├── excel/                xlsxReader.ts · workbook.ts · serialize.ts
 │   │   ├── llm/                  provider adapters, roster rules, mock provider, model catalog
 │   │   ├── report/               assemble.ts · xlsx.ts · markdown.ts
-│   │   ├── scorecard/            parse.ts
+│   │   ├── scorecard/            parse.ts · excel.ts (Excel layout, both directions) · template.ts
 │   │   ├── util/                 hash.ts · errors.ts · text.ts
 │   │   ├── config.ts  env.ts  cli.ts  index.ts
 │   └── tests/                    Vitest suites and helpers
@@ -37,7 +37,7 @@ ddd/
     └── src/
         ├── pages/                  Projects · NewEvaluation · Run · Project · Models  (+ report/ sections)
         ├── components/             Layout · Charts · Chip · DropZone · Pipeline · SectionNav · Icons
-        ├── styles/                 tokens.css · base.css · layout.css · components.css · report.css
+        ├── styles/                 tokens.css · base.css · layout.css · components.css · charts.css · pipeline.css · pages.css · report.css
         ├── api.ts  hooks.ts  format.ts  App.tsx  main.tsx
 ```
 
@@ -70,6 +70,7 @@ npm run typecheck && npm test
 | `npm run evaluate -- --workbook ... --scorecard ... --mock` | One evaluation from the command line |
 | `npm run models:check -- --ping` | Check the real model roster |
 | `npm run seed:demo -w server` | Fill a running server with three demo iterations |
+| `npm run scorecard:xlsx -- in.yaml [out.xlsx]` | Convert a YAML scorecard into the Excel layout |
 
 Use `MOCK_LLM=1` for everything that does not need a real model.
 
@@ -83,12 +84,11 @@ Use `MOCK_LLM=1` for everything that does not need a real model.
 - **Pure where possible.** Verdict, path to green, consolidation rules and report assembly are pure functions of their
   inputs, which is why they are easy to test.
 - **Comments explain why**, not what. Cite the PDF page when code exists because of a PDF rule.
-- **The dashboard** uses plain CSS with design tokens (`styles/tokens.css`), no UI framework. Green, amber and red are
-  reserved for verdicts and nothing else; teal is the agent colour.
+- **The dashboard** uses plain CSS built from design tokens (`styles/tokens.css`), no UI framework. See [Look and feel](#look-and-feel).
 
 ## Testing
 
-The suite is built around the PDF's rules. 128 server tests and 3 dashboard tests, all deterministic.
+The suite is built around the PDF's rules. 157 server tests and 3 dashboard tests, all deterministic.
 
 | File | What it proves |
 |---|---|
@@ -97,13 +97,14 @@ The suite is built around the PDF's rules. 128 server tests and 3 dashboard test
 | `checks.test.ts` | Each built-in check, `where` filters, a check that cannot run, band edges |
 | `evidence.test.ts` | Real cell accepted; invented sheet, cell, quote or address rejected |
 | `scorecard.test.ts` | The PDF format, error messages, the shipped samples, **and the example in the docs** |
+| `scorecardExcel.test.ts` | The Excel layout: every field, band presets, forgiving spellings, row-numbered errors, and **YAML → Excel → back gives the identical scorecard and hash** |
 | `reader.test.ts` | The real Talentra file opens; read-only; dates, rich text, formulas |
 | `orchestrator.test.ts` | The whole pipeline; every guardrail; every kind of misbehaving model; planted defects must never be green |
 | `promptSize.test.ts` | What raters are sent; token budgets for the samples (regression guard) |
 | `providers.test.ts` | Groq/Gemini adapters against recorded response shapes: retries, back-off, key never in an error |
 | `api.test.ts` | Every endpoint, validation errors, evidence and override, downloads, iteration history |
 | `report.test.ts` | Eight sections, in order, in both formats; the core never changes |
-| `catalog.test.ts`, `cli.test.ts` | Model listing and command-line paths |
+| `catalog.test.ts`, `cli.test.ts`, `dbErrors.test.ts` | Model listing, command-line paths, and the plain-language database start-up errors |
 
 **Scripted models.** `llm/mock.ts` answers from the real prompt by persona, chosen by model name:
 
@@ -128,6 +129,36 @@ TEST_DATABASE_URL=postgres://ddd:ddd@localhost:5432/ddd npm test -w server
 
 Each test harness creates its own schema, so they do not disturb each other. Passing tests prove the rules and the
 plumbing. They do **not** prove how good a live model is; that is what calibration is for (not built).
+
+## Look and feel
+
+The dashboard follows a few rules so it stays consistent as it grows.
+
+- **One typeface.** Inter (variable), bundled with the app through `@fontsource-variable/inter`, so it looks the same on every
+  machine and makes no request to an outside font service. It is set once on `body` (`--font`); buttons, inputs, code and
+  SVG text inherit it. There is no monospace font. Identifiers and hashes use the same face. Tabular figures are applied only to
+  numbers (`.num`, scores, counters), because in Inter they also widen punctuation such as hyphens.
+- **Scales, not one-off values.** Type sizes are `--text-xs` ... `--text-3xl`, spacing is `--space-1` ... `--space-10`, and
+  radii, shadows and motion timings are tokens too. Reach for a token before writing a number.
+- **Colour has jobs.** Green, amber and red mean verdicts and nothing else. Teal is the agent colour (accents, primary buttons).
+  Blue marks "counted by code".
+- **Motion is gentle and optional.** Each page's blocks rise in once, one after another (the `.page` wrapper in `Layout`
+  is keyed by the address). The score ring draws itself and counts up, the threshold marker slides to the score, hover and
+  focus states ease, loading shows skeleton blocks. Everything respects `prefers-reduced-motion`.
+- **Stylesheets are split by concern:** `tokens` (the scales), `base` (typography, reset), `layout` (shell, sidebar, page header, grids),
+  `components` (buttons, cards, chips, tables, forms, dialogs, empty and loading states), `charts`, `pipeline` (the live run view),
+  `pages`, and `report`.
+- **Responsive.** The sidebar becomes a top bar below 900 px, grids collapse below 1100 px, and wide tables scroll inside their card.
+
+**Refreshing the README screenshots** (needs the server running with demo data, see `npm run seed:demo -w server`):
+
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars \
+  --force-prefers-reduced-motion --window-size=1440,1560 --virtual-time-budget=8000 \
+  --screenshot=docs/images/screens/report.png "http://localhost:4000/runs/<run id>"
+```
+
+`--force-prefers-reduced-motion` makes the page skip its animations, so the capture shows the final state.
 
 ## Recipes
 

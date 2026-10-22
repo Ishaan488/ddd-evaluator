@@ -19,7 +19,7 @@ export function ReportView({ run, onChange }: { run: RunDetail; onChange: (run: 
     { id: 'verdict', label: 'Verdict' },
     { id: 'scores', label: 'Scores', count: report.dimensions.length },
     { id: 'findings', label: 'Findings', count: report.findings.length },
-    { id: 'agreement', label: 'Rater agreement', count: flagged > 0 ? flagged : undefined },
+    { id: 'agreement', label: 'Agreement', count: flagged > 0 ? flagged : undefined },
     { id: 'human', label: 'Needs a person', count: pending > 0 ? pending : undefined },
     { id: 'path', label: 'Path to green' },
     { id: 'strengths', label: 'Strengths', count: report.strengths.length },

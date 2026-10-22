@@ -36,6 +36,7 @@ export async function renderXlsx(report: Report): Promise<Buffer> {
     ...header.raters.map((r) => [`Rater ${r.id}`, `${r.provider} / ${r.model} (${r.family})`]),
     ['Consolidator', `${header.consolidator.provider} / ${header.consolidator.model} (${header.consolidator.family})`],
     ['Prompt version', header.promptVersion],
+    ...(header.instructions ? [['Extra instructions', header.instructions], ['Instructions hash', header.instructionsHash ?? '']] : []),
     ['Run id', header.runId],
     ['Started', header.startedAt],
     ['Finished', header.finishedAt],

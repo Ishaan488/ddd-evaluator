@@ -5,7 +5,7 @@ import { createApp } from './api/app.js';
 import { EvaluationService } from './api/service.js';
 import { loadAppConfig } from './config.js';
 import { migrate } from './db/migrate.js';
-import { createDb } from './db/pool.js';
+import { createDb, explainDbError } from './db/pool.js';
 import { Store } from './db/store.js';
 import { createProviderFactory } from './llm/registry.js';
 import { inspectRoster } from './llm/roster.js';
@@ -14,9 +14,17 @@ const log = (message: string) => console.log(`[ddd] ${message}`);
 
 const config = loadAppConfig();
 const env = process.env;
-const db = await createDb(config);
-const applied = await migrate(db);
-if (applied.length > 0) log(`database migrated: ${applied.join(', ')}`);
+let db: Awaited<ReturnType<typeof createDb>>;
+try {
+  db = await createDb(config);
+  const applied = await migrate(db);
+  if (applied.length > 0) log(`database migrated: ${applied.join(', ')}`);
+} catch (error) {
+  const advice = explainDbError(error, config.databaseUrl);
+  if (!advice) throw error;
+  console.error(`\n[ddd] ${advice}\n`);
+  process.exit(1);
+}
 
 const store = new Store(db);
 const interrupted = await store.failInterrupted();

@@ -36,6 +36,8 @@ export interface EvaluateArgs {
   scorecard: Scorecard;
   scorecardHash: string;
   sources: string;
+  /** Extra instructions from the person submitting the work. Recorded in the report header. */
+  instructions?: string;
   models: ModelsConfig;
   providers: ProviderFactory;
   env?: NodeJS.ProcessEnv;
@@ -62,6 +64,7 @@ export async function evaluate(args: EvaluateArgs): Promise<EvaluationOutput> {
   const startedAt = now();
   const emit = args.onProgress ?? (() => undefined);
   const { scorecard } = args;
+  const instructions = (args.instructions ?? '').trim();
 
   if (!scorecard.frozen) {
     throw new UserError(
@@ -110,6 +113,7 @@ export async function evaluate(args: EvaluateArgs): Promise<EvaluationOutput> {
     artifactText,
     contextText: serializeSheets(wb, scorecard.artifact.context),
     sources: args.sources,
+    instructions,
   });
 
   const ratingStarted = Date.now();
@@ -159,6 +163,7 @@ export async function evaluate(args: EvaluateArgs): Promise<EvaluationOutput> {
         dimensions: rated,
         raterResults: buildRaterResultsJson(rated, outcomes),
         artifactText,
+        instructions,
       }),
       wb,
       allowedSheets,
@@ -242,6 +247,7 @@ export async function evaluate(args: EvaluateArgs): Promise<EvaluationOutput> {
       raters: raterRefs,
       consolidator: consolidatorRef,
       promptVersion: PROMPT_VERSION,
+      ...(instructions ? { instructions, instructionsHash: sha256(instructions) } : {}),
       startedAt: startedAt.toISOString(),
       finishedAt: finishedAt.toISOString(),
     },

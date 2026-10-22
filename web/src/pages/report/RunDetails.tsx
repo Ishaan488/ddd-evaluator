@@ -14,6 +14,7 @@ export function RunDetails({ run }: { run: RunDetail }) {
     ['Scorecard approval', header.scorecardApproval ?? 'not stated'],
     ['Gate', header.gate === 'D1' ? 'D1 · schema design against its scorecard' : 'D3 · output document against its scorecard'],
     ['Prompts', header.promptVersion, 'mono'],
+    ...(header.instructions ? ([['Extra instructions', header.instructions], ['Instructions hash', header.instructionsHash ?? '', 'mono']] as Array<[string, string, string?]>) : []),
     ['Started', formatDate(header.startedAt)],
     ['Finished', formatDate(header.finishedAt)],
   ];

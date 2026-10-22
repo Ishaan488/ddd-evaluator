@@ -10,6 +10,7 @@ import { inspectRoster } from '../llm/roster.js';
 import { PROMPT_VERSION } from '../agent/index.js';
 import { renderMarkdown } from '../report/markdown.js';
 import { renderXlsx } from '../report/xlsx.js';
+import { buildScorecardTemplate } from '../scorecard/template.js';
 import { UserError } from '../util/errors.js';
 import type { EvaluationService } from './service.js';
 
@@ -79,19 +80,25 @@ export function createApp(deps: AppDeps): express.Express {
       const workbook = files?.workbook?.[0];
       const scorecard = files?.scorecard?.[0];
       if (!workbook) throw new UserError('Attach the workbook to evaluate (.xlsx).');
-      if (!scorecard) throw new UserError('Attach the frozen scorecard (.yaml or .json).');
+      if (!scorecard) throw new UserError('Attach the frozen scorecard (.xlsx, .yaml or .json).');
       if (!/\.xlsx$/i.test(workbook.originalname)) throw new UserError('The workbook must be an .xlsx file.');
 
       const body = req.body as Record<string, string | undefined>;
       const created = await service.submit({
         workbook: { name: workbook.originalname, buffer: workbook.buffer },
-        scorecard: { name: scorecard.originalname, text: scorecard.buffer.toString('utf8') },
+        scorecard: { name: scorecard.originalname, buffer: scorecard.buffer },
         sources: body.sources ?? '',
+        instructions: body.instructions,
         projectName: body.projectName,
       });
       res.status(202).json(created);
     },
   );
+
+  app.get('/api/scorecard-template.xlsx', async (_req, res) => {
+    res.type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.attachment('scorecard-template.xlsx').send(await buildScorecardTemplate());
+  });
 
   app.get('/api/runs/:id', async (req, res) => {
     res.json(await store.getRunDetail(req.params.id));

@@ -120,6 +120,9 @@ export interface ReportHeader {
   raters: ModelRef[];
   consolidator: ModelRef;
   promptVersion: string;
+  /** Extra instructions typed by the person who submitted the work, and their hash. */
+  instructions?: string;
+  instructionsHash?: string;
   startedAt: string;
   finishedAt: string;
 }

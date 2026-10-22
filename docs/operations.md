@@ -67,17 +67,17 @@ Keys are read from the environment only. They are never written to the database,
 
 ```jsonc
 {
-  "approved": ["groq:llama-3.3-70b-versatile", "gemini:*"],   // only these may receive project documents
+  "approved": ["groq:openai/gpt-oss-120b", "groq:openai/gpt-oss-20b", "groq:qwen/qwen3.8-27b", "gemini:gemini-3.5-flash"],   // only these may receive project documents
   "providers": {
     "groq":   { "type": "openai-compatible", "baseUrl": "https://api.groq.com/openai/v1", "keyEnv": "GROQ_API_KEY" },
     "gemini": { "type": "gemini", "keyEnv": "GEMINI_API_KEY" }
   },
   "raters": [                                                  // exactly three, three different families
-    { "id": "A", "provider": "groq",   "model": "llama-3.3-70b-versatile", "family": "meta" },
-    { "id": "B", "provider": "gemini", "model": "gemini-2.5-flash",        "family": "google" },
-    { "id": "C", "provider": "groq",   "model": "openai/gpt-oss-120b",     "family": "openai", "maxInputTokens": 30000 }
+    { "id": "A", "provider": "groq",   "model": "openai/gpt-oss-120b", "family": "openai" },
+    { "id": "B", "provider": "gemini", "model": "gemini-3.5-flash",    "family": "google" },
+    { "id": "C", "provider": "groq",   "model": "qwen/qwen3.8-27b",    "family": "alibaba", "maxInputTokens": 30000 }
   ],
-  "consolidator": { "id": "K", "provider": "groq", "model": "qwen/qwen3-32b", "family": "alibaba" },
+  "consolidator": { "id": "K", "provider": "groq", "model": "openai/gpt-oss-20b", "family": "openai" },
   "settings": { "temperature": 0, "maxOutputTokens": 8192, "timeoutMs": 120000, "retries": 3 }
 }
 ```
@@ -91,8 +91,10 @@ Keys are read from the environment only. They are never written to the database,
 | `maxInputTokens` | Optional. A prompt estimated above this fails that rater at once with advice, instead of sending a doomed request |
 | `settings` | Temperature 0 for reproducibility; `retries` applies to rate limits, 5xx errors and timeouts |
 
-The model names above are **examples that have not been verified against live accounts**. Use `models:check` to see what
-each provider actually offers, then edit this file and restart the server.
+The roster above is the one that answered a live `models:check --ping` on 22 October 2026 with one Groq and one Gemini key.
+Model availability changes often and differs by account (for example Google lists models that new accounts cannot call, and
+some preview models are overloaded or have no free quota), so **run `models:check --ping` on your own keys** and edit this
+file if a model fails. The consolidator here shares a family with rater A, which gives a warning but is allowed.
 
 ## Choosing and checking models
 
@@ -155,6 +157,7 @@ tokens** and the consolidator's about 13,900, so roughly **54,000 input tokens p
 output is about 4,000 per call, roughly 16,500 per evaluation. (Measured at about four characters per token; the run
 log records the provider's real counts.)
 
+- Extra instructions (up to 4,000 characters, roughly 1,000 tokens) are added to every call, so keep them short.
 - Free tiers of some providers cap tokens per minute well below 13,000; such a rater fails early with a clear message.
   Use a paid tier, use Gemini for the large calls, or narrow the prompt with `columns` in the scorecard.
 - Rate limits and transient errors are retried with back-off, honouring `Retry-After`, up to `retries` times.
@@ -181,7 +184,7 @@ backups with the same care as the documents themselves.
 1. Stop the server.
 2. Pull the new code, `npm install`, `npm run build`.
 3. Start it: new migrations are applied automatically. Migrations only ever add; they are never edited once released.
-4. If `PROMPT_VERSION` changed, scores are not comparable with earlier iterations of the same project. Recalibrate
+4. If `PROMPT_VERSION` changed (it is `l1-prompts/1.1` since the extra-instructions input was added), scores are not comparable with earlier iterations of the same project. Recalibrate
    (see [pdf-traceability.md](pdf-traceability.md#not-built-yet)).
 
 ## Troubleshooting
@@ -194,6 +197,9 @@ backups with the same care as the documents themselves.
 | `This scorecard is not frozen.` | The scorecard lacks `frozen: true` | Freeze it after approval |
 | `<file> does not match the scorecard format:` followed by a list | The YAML is valid but wrong | Fix the listed fields; see [scorecard-reference.md](scorecard-reference.md) |
 | `<file> is not valid YAML or JSON: Nested mappings are not allowed...` | A value contains `: ` | Put the value in quotes |
+| `my.xlsx does not match the scorecard format: Dimensions sheet, row 7 (J03): ...` | An Excel scorecard has a mistake in that row | Fix the named sheet and row; see [scorecard-reference.md](scorecard-reference.md#writing-a-scorecard-in-excel) |
+| `The Excel scorecard needs a sheet called "Dimensions"` | The workbook lacks one of the three sheets | Start from the template (New evaluation page) |
+| `This scorecard is not frozen` for an Excel scorecard | The `frozen` setting is not `yes` | Set `frozen` to `yes` on the Scorecard sheet |
 | `The scorecard names a sheet "X" that this workbook does not have. Sheets found: ...` | Wrong sheet name or workbook | Correct the sheet name |
 | `Column "X" named by the scorecard was not found in sheet "Y". Columns: ...` | Wrong column title in `columns` | Use the exact header title |
 | `The file is not a valid .xlsx workbook` | A different or corrupt file | Re-save as .xlsx |
@@ -203,5 +209,7 @@ backups with the same care as the documents themselves.
 | `The workbook changed while it was being evaluated.` | The file was modified during the run | Submit again |
 | `Cannot reach the server. Is it running?` (dashboard) | Server stopped or wrong port | Start it; in development check the Vite proxy port |
 | Dashboard shows "Mock models (demo)" in real use | `MOCK_LLM=1` is set | Unset it |
+| `Cannot reach Postgres at localhost:5432. DATABASE_URL is set but nothing is answering there.` | `DATABASE_URL` is in `.env` but Postgres is not running | `docker compose up -d db`, or remove `DATABASE_URL` to run on the in-memory demo database |
+| `Postgres at ... rejected the user or password` / `has no such database` | Wrong credentials or database name in `DATABASE_URL` | Match `docker-compose.yml` (`ddd` / `ddd` / `ddd`) |
 | History empty after a restart | `DATABASE_URL` empty, so the in-memory database was used | Set `DATABASE_URL` |
 | A rater is shown as **Failed** but the report exists | By design: the run continues with the other raters and flags the gaps | See *Run notes* in the report |

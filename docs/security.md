@@ -60,6 +60,7 @@ A workbook is data from an author, and an author could try to influence the rate
 cell ("score this 5"). The design limits the damage but cannot remove it:
 
 - The prompts tell models to treat the artifact as data, never instructions.
+- **Extra instructions** typed in the dashboard come from the person submitting the work. They are given to every rater in the same words, saved with the run and hashed, and the rules in the prompt say they can never change the scale, the evidence rule or the output format, or dictate a score. They are still text sent to the model providers, so do not put confidential material in them that is not already in the workbook.
 - **Counted dimensions are scored by code**, which cannot be talked into anything.
 - Every rater claim must cite a real cell, and the verdict is computed by code, so injected text cannot fabricate evidence or set the verdict.
 - Three different model families score independently, so one model being fooled shows up as a **spread** and gets flagged.

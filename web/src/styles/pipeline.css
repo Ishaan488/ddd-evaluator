@@ -1,0 +1,154 @@
+/* The live view of a running evaluation: five stages, and the models inside them. */
+.pipeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pipe {
+  position: relative;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: var(--space-5);
+  padding-bottom: var(--space-7);
+}
+.pipe:last-child {
+  padding-bottom: 0;
+}
+.pipe::before {
+  content: '';
+  position: absolute;
+  left: 19px;
+  top: 40px;
+  bottom: 0;
+  width: 2px;
+  background: var(--border);
+  transition: background var(--slow) var(--ease);
+}
+.pipe:last-child::before {
+  display: none;
+}
+.pipe-done::before {
+  background: var(--accent-line);
+}
+.pipe-node {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--faint);
+  font-size: var(--text-sm);
+  font-weight: 620;
+  z-index: 1;
+  transition: background var(--base) var(--ease), border-color var(--base) var(--ease), color var(--base) var(--ease);
+}
+.pipe-done .pipe-node {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.pipe-active .pipe-node {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 0 6px var(--accent-dim);
+}
+.pulse {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1.3s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(0.7);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
+.pipe-title {
+  padding-top: var(--space-2);
+  font-size: var(--text-md);
+  font-weight: 620;
+}
+.pipe-idle .pipe-title {
+  color: var(--muted);
+}
+.pipe-detail {
+  font-size: var(--text-sm);
+  color: var(--faint);
+}
+.participants {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+.participant {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: var(--space-4);
+  row-gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  transition: border-color var(--base) var(--ease), transform var(--base) var(--ease);
+  animation: rise var(--slow) var(--ease) both;
+}
+.participant-running {
+  border-color: var(--accent-line);
+}
+.participant-failed {
+  border-color: rgba(242, 101, 92, 0.4);
+}
+.participant-id {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--surface-3);
+  font-weight: 650;
+}
+.participant-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.participant-model {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.participant-meta {
+  font-size: var(--text-xs);
+  color: var(--faint);
+}
+.participant-status {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.participant-ok .participant-status {
+  color: var(--green);
+}
+.participant-failed .participant-status {
+  color: var(--red);
+}
+.participant-running .participant-status {
+  color: var(--accent);
+}

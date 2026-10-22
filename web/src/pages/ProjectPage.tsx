@@ -1,4 +1,4 @@
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { Chip, DecisionChip } from '../components/Chip';
 import { Heatmap, TrendChart } from '../components/Charts';
@@ -9,6 +9,7 @@ import { useDocumentTitle, useResource } from '../hooks';
 
 export function ProjectPage() {
   const { id = '' } = useParams();
+  const navigate = useNavigate();
   const history = useResource(() => api.project(id), [id], (h) => (h.runs.some((r) => r.status === 'queued' || r.status === 'running') ? 2000 : null));
   const h = history.data;
   useDocumentTitle(h?.project.name ?? 'Project');
@@ -79,7 +80,8 @@ export function ProjectPage() {
       )}
 
       <Card title="Iterations" flush>
-        <table className="table table-hover">
+        <div className="table-scroll">
+        <table className="table table-hover table-fit">
           <thead>
             <tr>
               <th>Version</th>
@@ -90,16 +92,15 @@ export function ProjectPage() {
               <th className="num">Fixed</th>
               <th className="num">Still open</th>
               <th className="num">New</th>
-              <th />
             </tr>
           </thead>
           <tbody>
             {[...h.runs].reverse().map((r) => {
               const diff = diffByRun.get(r.id);
               return (
-                <tr key={r.id}>
-                  <td><Link to={`/runs/${r.id}`} className="row-title">v{r.iteration}</Link></td>
-                  <td className="faint">{formatDate(r.createdAt)}</td>
+                <tr key={r.id} className="clickable" onClick={() => navigate(`/runs/${r.id}`)}>
+                  <td><Link to={`/runs/${r.id}`} className="row-title" onClick={(e) => e.stopPropagation()}>v{r.iteration}</Link></td>
+                  <td className="faint nowrap">{formatDate(r.createdAt)}</td>
                   <td className="mono faint truncate">{r.artifactName}</td>
                   <td>
                     {r.status === 'failed' ? <Chip tone="red">Failed</Chip> : r.status !== 'done' ? <Chip tone="accent">Running</Chip> : <DecisionChip decision={r.finalDecision} size="sm" />}
@@ -108,12 +109,12 @@ export function ProjectPage() {
                   <td className="num">{diff ? <span className={diff.fixed > 0 ? 'up' : 'faint'}>{diff.fixed}</span> : '—'}</td>
                   <td className="num">{diff ? diff.stillOpen : '—'}</td>
                   <td className="num">{diff ? <span className={diff.added > 0 ? 'down' : 'faint'}>{diff.added}</span> : '—'}</td>
-                  <td className="num"><Link to={`/runs/${r.id}`} className="link-quiet">Open <Icon name="arrow" size={13} /></Link></td>
                 </tr>
               );
             })}
           </tbody>
         </table>
+        </div>
       </Card>
 
       {h.dimensions.length > 0 && (

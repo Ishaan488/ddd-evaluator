@@ -20,19 +20,21 @@ export function NewEvaluationPage() {
   const [workbook, setWorkbook] = useState<File | null>(null);
   const [scorecard, setScorecard] = useState<File | null>(null);
   const [sources, setSources] = useState('');
+  const [instructions, setInstructions] = useState('');
   const [frozenWarning, setFrozenWarning] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setFrozenWarning(false);
-    if (!scorecard) return;
+    // An Excel scorecard is checked on the server; only text scorecards can be peeked at here.
+    if (!scorecard || /\.xlsx$/i.test(scorecard.name)) return;
     void scorecard.text().then((text) => setFrozenWarning(!/frozen\s*:\s*true/i.test(text)));
   }, [scorecard]);
 
   const existing = useMemo(() => projects.data?.find((p) => p.name.toLowerCase() === projectName.trim().toLowerCase()), [projects.data, projectName]);
   const workbookOk = hasExtension(workbook, ['.xlsx']);
-  const scorecardOk = hasExtension(scorecard, ['.yaml', '.yml', '.json']);
+  const scorecardOk = hasExtension(scorecard, ['.xlsx', '.yaml', '.yml', '.json']);
   const ready = config.data?.ready ?? false;
   const canSubmit = Boolean(workbook && scorecard && workbookOk && scorecardOk && ready && !busy);
 
@@ -42,7 +44,7 @@ export function NewEvaluationPage() {
     setBusy(true);
     setError(null);
     try {
-      const created = await api.submit({ workbook, scorecard, projectName: projectName.trim(), sources });
+      const created = await api.submit({ workbook, scorecard, projectName: projectName.trim(), sources, instructions });
       navigate(`/runs/${created.runId}`);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'The submission failed.');
@@ -97,13 +99,38 @@ export function NewEvaluationPage() {
             </div>
 
             <DropZone label="Workbook" hint=".xlsx · the schema (D1) or output (D3)" accept={['.xlsx']} file={workbook} onFile={setWorkbook} icon="upload" error={workbookOk ? null : 'This has to be an .xlsx file.'} />
-            <DropZone label="Frozen scorecard" hint=".yaml or .json · how it is scored" accept={['.yaml', '.yml', '.json']} file={scorecard} onFile={setScorecard} icon="list" error={scorecardOk ? null : 'Use a .yaml or .json scorecard.'} />
+            <DropZone label="Frozen scorecard" hint=".xlsx, .yaml or .json · how it is scored" accept={['.xlsx', '.yaml', '.yml', '.json']} file={scorecard} onFile={setScorecard} icon="list" error={scorecardOk ? null : 'Use an .xlsx, .yaml or .json scorecard.'} />
+            <p className="field-hint template-hint">
+              No scorecard yet?
+              <a className="link-quiet" href={api.scorecardTemplateUrl} download>
+                <Icon name="download" size={13} /> Download the Excel template
+              </a>
+              <span className="faint">Fill it in, set frozen to yes, and upload it here.</span>
+            </p>
             {frozenWarning && (
               <div className="banner banner-amber">
                 <Icon name="lock" />
                 <span>This scorecard does not say <code>frozen: true</code>. The evaluator will refuse it until it is frozen, so the target cannot move.</span>
               </div>
             )}
+
+            <div className="field">
+              <label className="field-label" htmlFor="instructions">Extra instructions for the examiners <span className="optional">optional</span></label>
+              <textarea
+                id="instructions"
+                className="input textarea"
+                rows={4}
+                maxLength={4000}
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+                placeholder="For example: Pay special attention to the Definition column. Treat the Example column as out of scope."
+              />
+              <span className="field-hint">
+                Given to all three examiners and the consolidator, and saved with the result. They steer what to look at; they can never change
+                the 0 to 5 scale, the evidence rule or the scorecard.
+                <span className="faint counter">{instructions.length} / 4000</span>
+              </span>
+            </div>
 
             <div className="field">
               <label className="field-label" htmlFor="sources">Source documents <span className="optional">optional</span></label>

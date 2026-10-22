@@ -2,6 +2,7 @@ import YAML from 'yaml';
 import { scorecardFileSchema, toScorecard, type Scorecard } from '@ddd/shared';
 import { canonicalJson, sha256 } from '../util/hash.js';
 import { UserError } from '../util/errors.js';
+import { readExcelScorecard } from './excel.js';
 
 export interface ParsedScorecard {
   scorecard: Scorecard;
@@ -26,5 +27,16 @@ export function parseScorecard(text: string, filename = 'scorecard'): ParsedScor
   }
 
   const scorecard = toScorecard(result.data);
+  return { scorecard, hash: sha256(canonicalJson(scorecard)) };
+}
+
+/**
+ * Parses an uploaded scorecard file. An .xlsx is read with the Excel layout (see excel.ts);
+ * anything else is read as YAML or JSON. Both end in the same validated scorecard and hash.
+ */
+export async function parseScorecardFile(buffer: Buffer, filename: string): Promise<ParsedScorecard> {
+  if (!/\.xlsx$/i.test(filename)) return parseScorecard(buffer.toString('utf8'), filename);
+  const raw = await readExcelScorecard(buffer, filename);
+  const scorecard = toScorecard(scorecardFileSchema.parse(raw));
   return { scorecard, hash: sha256(canonicalJson(scorecard)) };
 }
