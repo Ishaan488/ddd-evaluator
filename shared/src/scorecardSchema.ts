@@ -53,6 +53,7 @@ const dimensionSchema = z
     check: checkSchema.optional(),
     needs: z.string().optional(),
     return_to: z.enum(RETURN_TO).optional(),
+    reads: z.array(z.string().min(1)).optional(),
   })
   .superRefine((dim, ctx) => {
     const measuredBy = resolveMeasuredBy(dim);
@@ -149,6 +150,7 @@ export function toScorecard(file: ScorecardFile): Scorecard {
         : undefined,
       needs: d.needs,
       returnTo: d.return_to,
+      reads: d.reads,
     })),
   };
 }

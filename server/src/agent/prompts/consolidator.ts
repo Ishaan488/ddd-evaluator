@@ -51,6 +51,8 @@ export interface ConsolidatorPromptInput {
   /** JSON string of the three raters' validated results. */
   raterResults: string;
   artifactText: string;
+  /** True when only the sheets behind disputed dimensions are attached. */
+  artifactIsPartial?: boolean;
   instructions?: string;
 }
 
@@ -58,7 +60,8 @@ export function buildConsolidatorUser(input: ConsolidatorPromptInput): string {
   return [
     `<scorecard>\n${scorecardForModels(input.scorecard, input.dimensions)}\n</scorecard>`,
     `<rater_results>\n${input.raterResults}\n</rater_results>`,
-    `<artifact>\n${input.artifactText}\n</artifact>`,
+    `<artifact>\n${input.artifactText || '(The raters agreed within one point everywhere, so no sheets are attached.)'}\n</artifact>`,
+    ...(input.artifactIsPartial ? ['Only the sheets behind the disputed dimensions are attached. For the others, rely on the raters\' cited evidence.'] : []),
     `<instructions>\n${input.instructions?.trim() || '(none)'}\n</instructions>`,
     `Reconcile the raters. Reply with one JSON object in exactly this shape:\n${CONSOLIDATOR_SHAPE}`,
   ].join('\n\n');

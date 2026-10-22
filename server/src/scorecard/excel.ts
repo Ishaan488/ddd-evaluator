@@ -28,7 +28,7 @@ const RETURN_TO = ['Discover', 'Define', 'Generate', 'Analyse', 'Validate', 'Ref
 const DIMENSION_COLUMNS = [
   'ID', 'Name', 'Weight', 'Critical', 'Measured by', 'Measure', 'Description',
   ...ANCHOR_LEVELS.map((n) => `Anchor ${n}`),
-  'Check', 'Params', 'Bands', 'Fix', 'Needs', 'Return to',
+  'Check', 'Params', 'Bands', 'Fix', 'Needs', 'Return to', 'Reads',
 ] as const;
 
 /* ------------------------------ reading ------------------------------ */
@@ -162,6 +162,11 @@ export async function readExcelScorecard(buffer: Buffer, filename: string): Prom
       const match = RETURN_TO.find((r) => r.toLowerCase() === returnTo.toLowerCase());
       if (!match) throw new UserError(`${where}: Return to must be one of ${RETURN_TO.join(', ')} (got "${returnTo}").`);
       dimension.return_to = match;
+    }
+    const reads = cell(row, 'Reads');
+    if (reads) {
+      // Commas inside [brackets] belong to the entry, so only split on the ones outside them.
+      dimension.reads = reads.split(/[,;\n](?![^[]*\])/).map((s) => s.trim()).filter(Boolean);
     }
 
     const anchors: Record<number, string> = {};
@@ -315,7 +320,7 @@ export async function scorecardToWorkbook(scorecard: Scorecard): Promise<Buffer>
       d.check?.id ?? '',
       d.check ? JSON.stringify(d.check.params) : '',
       d.check ? d.check.bands.map((b) => `${b.min}:${b.score}`).join(', ') : '',
-      d.check?.fix ?? '', d.needs ?? '', d.returnTo ?? '',
+      d.check?.fix ?? '', d.needs ?? '', d.returnTo ?? '', (d.reads ?? []).join('; '),
     ]);
   }
   styleHeader(dims);

@@ -2,6 +2,7 @@ import type { DimensionSpec, Scorecard } from '@ddd/shared';
 import { serializeSheets } from '../excel/serialize.js';
 import type { WorkbookModel } from '../excel/workbook.js';
 import { buildRaterUser } from './prompts/rater.js';
+import { planSections, type EvalSection } from './sectionPlanner.js';
 
 export interface RaterPrompt {
   /** The dimensions the raters (not code, not a person) score. */
@@ -34,4 +35,44 @@ export function buildRaterPrompt(input: {
     instructions: input.instructions,
   });
   return { rated, artifactText, user };
+}
+
+/**
+ * Builds the rater prompt for a single section produced by `planSections`.
+ * Only the sheets declared in the section are serialised — this is what keeps
+ * the token count small. The scorecard metadata (id, name, thresholds) is still
+ * sent in full so the rater has context.
+ */
+export function buildRaterPromptForSection(input: {
+  scorecard: Scorecard;
+  section: EvalSection;
+  wb: WorkbookModel;
+  sources: string;
+  instructions?: string;
+}): RaterPrompt {
+  const { scorecard, section, wb } = input;
+  const artifactText = serializeSheets(wb, section.sheets);
+  const contextText = serializeSheets(wb, section.context);
+  const user = buildRaterUser({
+    scorecard,
+    dimensions: section.dimensions,
+    artifactText,
+    contextText,
+    sources: input.sources,
+    instructions: input.instructions,
+  });
+  return { rated: section.dimensions, artifactText, user };
+}
+
+
+/** Every prompt an evaluation will send to each rater: one per section, or one for the whole workbook. */
+export function buildAllRaterPrompts(input: {
+  scorecard: Scorecard;
+  wb: WorkbookModel;
+  sources: string;
+  instructions?: string;
+}): Array<{ label: string; prompt: RaterPrompt }> {
+  const sections = planSections(input.scorecard);
+  if (sections.length === 0) return [{ label: 'full workbook', prompt: buildRaterPrompt(input) }];
+  return sections.map((section) => ({ label: section.label, prompt: buildRaterPromptForSection({ ...input, section }) }));
 }

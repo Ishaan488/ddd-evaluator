@@ -1,91 +1,124 @@
 /*
- * Design tokens. Everything visual is built from these: colour, one typeface, a type scale,
- * a spacing scale, radii, shadows and motion. Change a value here and the whole app follows.
+ * Design tokens. Visual foundation for the DDD Evaluator: futuristic AI agent console,
+ * rich dark aesthetics, glassmorphism, luminous glows, crisp typography, and buttery-smooth motion.
  */
 :root {
   color-scheme: dark;
 
-  /* ------------------------------ colour ------------------------------ */
-  --bg: #08080a;
-  --surface: #0f0f12;
-  --surface-2: #141418;
-  --surface-3: #1a1a1f;
-  --surface-4: #212127;
-  --border: #222228;
-  --border-strong: #303039;
-  --border-hover: #40404b;
+  /* ------------------------------ colour canvas ------------------------------ */
+  --bg: #07090e;
+  --bg-subtle: #0b0f19;
+  --surface: rgba(14, 18, 30, 0.78);
+  --surface-solid: #0d1220;
+  --surface-2: rgba(21, 27, 45, 0.65);
+  --surface-2-solid: #141a2c;
+  --surface-3: rgba(28, 37, 62, 0.65);
+  --surface-3-solid: #1b233a;
+  --surface-4: rgba(38, 49, 82, 0.72);
+  --surface-4-solid: #242e4c;
 
-  /* text, from strongest to quietest. Every step passes the 4.5:1 accessibility contrast on every surface. */
-  --text: #f4f4f7;
-  --text-2: #c9c9d2;
-  --muted: #a6a6b2;
-  --faint: #8c8c98;
+  /* translucent micro-borders for authentic glass depth */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-strong: rgba(255, 255, 255, 0.15);
+  --border-hover: rgba(255, 255, 255, 0.25);
+  --border-glow: rgba(45, 212, 191, 0.45);
 
-  /* the agent colour (PDF: "teal = agents") */
+  /* text hierarchy: high legibility on dark obsidian canvas */
+  --text: #f8fafc;
+  --text-2: #cbd5e1;
+  --muted: #94a3b8;
+  --faint: #64748b;
+
+  /* futuristic AI agent palette (cyber-teal, electric cyan & neural violet) */
   --accent: #2dd4bf;
   --accent-strong: #5eead4;
+  --accent-cyan: #38bdf8;
+  --accent-violet: #818cf8;
   --accent-dim: rgba(45, 212, 191, 0.12);
-  --accent-line: rgba(45, 212, 191, 0.38);
-  --accent-ink: #04201c;
+  --accent-dim-strong: rgba(45, 212, 191, 0.22);
+  --accent-line: rgba(45, 212, 191, 0.4);
+  --accent-ink: #021a17;
 
-  /* verdicts: used for nothing else */
-  --green: #3ecf8e;
-  --green-dim: rgba(62, 207, 142, 0.12);
-  --amber: #f5b13d;
-  --amber-dim: rgba(245, 177, 61, 0.12);
-  --red: #f2655c;
-  --red-dim: rgba(242, 101, 92, 0.12);
-  --blue: #7aa2f7;
-  --blue-dim: rgba(122, 162, 247, 0.12);
+  /* verdict colours: high-saturation cyber tones with luminous aura */
+  --green: #10b981;
+  --green-bright: #34d399;
+  --green-dim: rgba(16, 185, 129, 0.14);
+  --green-glow: 0 0 22px -2px rgba(16, 185, 129, 0.45);
 
-  /* meaning, not decoration: what a colour says wherever it appears */
+  --amber: #f59e0b;
+  --amber-bright: #fbbf24;
+  --amber-dim: rgba(245, 158, 11, 0.14);
+  --amber-glow: 0 0 22px -2px rgba(245, 158, 11, 0.45);
+
+  --red: #f43f5e;
+  --red-bright: #fb7185;
+  --red-dim: rgba(244, 63, 94, 0.14);
+  --red-glow: 0 0 22px -2px rgba(244, 63, 94, 0.45);
+
+  --blue: #3b82f6;
+  --blue-bright: #60a5fa;
+  --blue-dim: rgba(59, 130, 246, 0.14);
+  --blue-glow: 0 0 22px -2px rgba(59, 130, 246, 0.45);
+
+  /* semantic mappings */
   --good: var(--green);
   --warn: var(--amber);
   --bad: var(--red);
   --info: var(--blue);
 
-  /* ----------------------- one typeface, everywhere ----------------------- */
-  --font: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* ----------------------- typography ----------------------- */
+  --font: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 
-  /* type scale */
-  --text-xs: 0.8125rem;   /* 13px  labels, table headings, captions */
-  --text-sm: 0.875rem;    /* 14px  secondary text */
-  --text-base: 1rem;      /* 16px  body */
-  --text-md: 1.0625rem;   /* 17px  emphasis */
-  --text-lg: 1.25rem;     /* 20px  card titles */
-  --text-xl: 1.5rem;      /* 24px  */
-  --text-2xl: 2rem;       /* 32px  page titles */
-  --text-3xl: 2.5rem;     /* 40px  big numbers */
+  /* calibrated type scale: compact, crisp, pro AI console density */
+  --text-xs: 0.75rem;     /* 12px */
+  --text-sm: 0.8125rem;   /* 13px */
+  --text-base: 0.9375rem; /* 15px */
+  --text-md: 1rem;        /* 16px */
+  --text-lg: 1.125rem;    /* 18px */
+  --text-xl: 1.375rem;    /* 22px */
+  --text-2xl: 1.75rem;    /* 28px */
+  --text-3xl: 2.25rem;    /* 36px */
 
   /* ---------------------------- spacing scale ---------------------------- */
   --space-1: 0.25rem;   /*  4 */
   --space-2: 0.5rem;    /*  8 */
-  --space-3: 0.75rem;   /* 12 */
-  --space-4: 1rem;      /* 16 */
-  --space-5: 1.25rem;   /* 20 */
-  --space-6: 1.5rem;    /* 24 */
-  --space-7: 2rem;      /* 32 */
-  --space-8: 2.5rem;    /* 40 */
-  --space-9: 3rem;      /* 48 */
-  --space-10: 4rem;     /* 64 */
+  --space-3: 0.6875rem; /* 11 */
+  --space-4: 0.875rem;  /* 14 */
+  --space-5: 1.125rem;  /* 18 */
+  --space-6: 1.375rem;  /* 22 */
+  --space-7: 1.75rem;   /* 28 */
+  --space-8: 2.25rem;   /* 36 */
+  --space-9: 2.75rem;   /* 44 */
+  --space-10: 3.5rem;   /* 56 */
 
-  /* ------------------------------- shape ------------------------------- */
-  --radius: 18px;
-  --radius-md: 14px;
-  --radius-sm: 11px;
-  --radius-xs: 8px;
-  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 20px 48px rgba(0, 0, 0, 0.45);
-  --shadow-sm: 0 8px 24px rgba(0, 0, 0, 0.35);
-  --glow: 0 10px 28px -10px rgba(45, 212, 191, 0.55);
+  /* ------------------------------- shape & glass ------------------------------- */
+  --radius: 12px;
+  --radius-md: 10px;
+  --radius-sm: 7px;
+  --radius-xs: 5px;
+
+  --glass-blur: blur(14px) saturate(140%);
+  --glass-bg: rgba(14, 18, 30, 0.72);
+
+  --shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.65), 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+  --shadow-sm: 0 6px 18px -3px rgba(0, 0, 0, 0.45);
+  --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --shadow-card-hover: 0 12px 32px -6px rgba(0, 0, 0, 0.65), 0 0 24px -6px rgba(45, 212, 191, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+
+  --glow: 0 0 24px -2px rgba(45, 212, 191, 0.45);
+  --glow-sm: 0 0 12px -1px rgba(45, 212, 191, 0.3);
 
   /* ------------------------------- layout ------------------------------- */
-  --sidebar: 288px;
-  --content-max: 1280px;
-  --gutter: 3.5rem;
+  --sidebar: 248px;
+  --content-max: 1220px;
+  --gutter: 2rem;
 
   /* ------------------------------- motion ------------------------------- */
-  --ease: cubic-bezier(0.22, 0.8, 0.24, 1);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.45, 0.64, 1);
   --fast: 0.16s;
   --base: 0.26s;
-  --slow: 0.7s;
+  --slow: 0.55s;
 }

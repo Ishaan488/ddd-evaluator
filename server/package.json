@@ -9,6 +9,7 @@
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json",
     "db:migrate": "tsx src/db/migrateCli.ts",
+    "prompt:size": "tsx scripts/promptSize.ts",
     "models:check": "tsx scripts/modelsCheck.ts",
     "evaluate": "tsx src/cli.ts",
     "seed:demo": "tsx scripts/seedDemo.ts",

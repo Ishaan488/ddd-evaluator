@@ -82,13 +82,14 @@ async function main(): Promise<void> {
   const report = assembleReport(result.core, [], null);
   await mkdir(out, { recursive: true });
   await writeFile(path.join(out, 'report.json'), JSON.stringify(report, null, 2));
+  await writeFile(path.join(out, 'run-log.json'), JSON.stringify(result.runLog, null, 2));
   await writeFile(path.join(out, 'report.md'), renderMarkdown(report));
   await writeFile(path.join(out, 'report.xlsx'), await renderXlsx(report));
 
   const { verdict } = report;
   console.log(`\nVerdict: ${verdict.decision.toUpperCase()}  score ${verdict.weightedScore}`);
   for (const reason of verdict.reasons) console.log(`  - ${reason}`);
-  console.log(`Findings: ${report.findings.length}   Report written to ${out}`);
+  console.log(`Findings: ${report.findings.length}   Report and run-log.json (models, tokens, timings) written to ${out}`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

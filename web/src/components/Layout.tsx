@@ -9,11 +9,14 @@ function Brand() {
   return (
     <NavLink to="/" className="brand" aria-label="DDD Evaluator home">
       <span className="brand-mark">
-        <Icon name="check" size={16} strokeWidth={2.6} />
+        <Icon name="cpu" size={18} strokeWidth={2.2} />
       </span>
       <span className="brand-text">
-        <span className="brand-name">DDD Evaluator</span>
-        <span className="brand-sub">Level 1 · Evaluator agents</span>
+        <span className="brand-name-row">
+          <span className="brand-name">DDD Evaluator</span>
+          <span className="brand-badge">AI 3+1</span>
+        </span>
+        <span className="brand-sub">Level 1 · Multi-agent consensus</span>
       </span>
     </NavLink>
   );

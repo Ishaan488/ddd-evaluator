@@ -21,6 +21,7 @@
     "typecheck": "npm run typecheck -w shared && npm run typecheck -w server && npm run typecheck -w web",
     "db:migrate": "npm run db:migrate -w server",
     "models:check": "npm run models:check -w server --",
+    "prompt:size": "npm run prompt:size -w server --",
     "evaluate": "npm run evaluate -w server --",
     "docs:check": "node scripts/checkDocs.mjs",
     "scorecard:xlsx": "npm run scorecard:xlsx -w server --"

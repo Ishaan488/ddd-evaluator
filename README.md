@@ -256,12 +256,21 @@ Read this before relying on a verdict.
 
 - **Live models have been tried, with mixed results on free keys.** The smaller Step 04 scorecard ran end to end on live Groq and Gemini and
   produced a real report (twice). One rater was left out each time for a provider reason (Gemini overload, then a Gemini quota, then a Groq
-  size refusal), which is exactly what fallback models and graceful degradation are for. The large schema scorecard has not run live: see below. Model availability varies by account and over time, so re-run the ping on your own keys.
+  size refusal), which is exactly what fallback models and graceful degradation are for. The large schema scorecard (D2) ran live once in its **sectioned** form and produced a partial result: see below. Model availability varies by account and over time, so re-run the ping on your own keys.
 - **The two scorecards are drafts** and say so in every report until your mentor approves them.
 - **Prompt size, and it blocked the first live run.** The Talentra schema prompt is about **18,000 to 21,500 tokens per rater** (Groq measured
   18,336 and 21,482). Groq's free tier allowed 8,000 and 7,000 per minute, so the Groq raters were refused. The app now measures the prompt
   at submit and says so before running (it needs at least two raters that can take it); that measurement is an estimate and can be off by half
-  for number-heavy content. For the big schema scorecard use models or plans with larger limits. Sectioned evaluation is not built.
+  for number-heavy content.
+- **Sectioned scoring (built, tried live once).** A rater question can list the sheets and columns it needs (`reads`), so the prompt is split into
+  smaller sections. On the Talentra D2 schema, estimated tokens per rater fell from **20,500 in one prompt to 8,000 in the largest section (-61%)**,
+  but the total sent to each rater rose to about 28,700 (+40%), because instructions and shared columns repeat. The consolidator is now sent only
+  the sheets behind real disagreements: **4,890 tokens, where it used to be sent the whole judged workbook (about 16,000)**.
+  The one live run (3 min 56 s, free keys) gave **AMBER 84.8** where the same scorecard could not run at all before. It was partial: Gemini's
+  free quota ran out and its fallback answered; Groq's `gpt-oss-120b` and `qwen3.8-27b` were refused on most sections (limits 8,000 and 7,000;
+  Groq counted one request at 12,499 tokens against an estimate of about 7,700). So J01 to J04 were scored by two examiners, J05 by one, and J06 was
+  left unscored because its only claim had no valid evidence. The agent said so in the report instead of guessing. A full 3+1 result on the big schema still needs
+  higher-limit keys. Try your own files without spending quota: `npm run prompt:size -- <workbook> <scorecard>`.
 - **Free tiers are fragile.** Gemini's newer models have small quotas and busy periods; Groq's free limits are about 7,000 to 8,000 tokens a minute.
   Fallback models (same family) soften this; a paid or higher-limit key removes it.
 - **No authentication, no TLS, no rate limiting.** Put it behind your reverse proxy with sign-in for shared use.

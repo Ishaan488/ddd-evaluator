@@ -165,10 +165,12 @@ and the run records the real counts. Treat the estimate as a guide for planning,
 - Extra instructions (up to 4,000 characters, roughly 1,000 tokens) are added to every call, so keep them short.
 - Free tiers cap tokens per minute. Groq's `on_demand` tier reported 8,000 for `gpt-oss-120b` and 7,000 for `qwen3.8-27b`, far below the
   schema prompt. **At submit the app measures the prompt against each rater's `maxInputTokens` and refuses the evaluation, in plain words, if
-  fewer than two raters can take it**, instead of failing three calls later. Fix it with a larger plan or model, a smaller scorecard, or
-  `columns` in the scorecard. `maxInputTokens` is account-specific: when you upgrade a plan, raise or remove it.
+  fewer than two raters can take it**, instead of failing three calls later. Fix it with a larger plan or model, a smaller scorecard,
+  `columns` in the scorecard, or `reads` on the rater questions. `maxInputTokens` is account-specific: when you upgrade a plan, raise or remove it.
 - Rate limits and transient errors are retried with back-off, honouring `Retry-After`, up to `retries` times.
-- The PDF's advice for cost is to evaluate small sections first. That is not built yet.
+- **Sectioned scoring** is built: a rater question can list the sheets and columns it needs (`reads`), and each group of questions is sent as its own
+  smaller prompt. The size check judges every section on its own. See *Sectioned scoring* in the scorecard reference. Run
+  `npm run prompt:size -- <workbook> <scorecard>` to see, without calling any model, how big each prompt is and which of your raters can take it.
 
 ## Backup and restore
 

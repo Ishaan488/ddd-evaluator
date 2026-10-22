@@ -106,6 +106,7 @@ The suite is built around the PDF's rules. 172 server tests and 3 dashboard test
 | `report.test.ts` | Eight sections, in order, in both formats; the core never changes |
 | `fallback.test.ts` | Fallback models: same family, named in the report, ordered, protect the consolidator, show live, approved-only, skipped without a key |
 | `preflight.test.ts` | The size check before submit, including fallbacks |
+| `sectionPlanner.test.ts`, `sectionTokens.test.ts` | Sectioned scoring: grouping by `reads`, column narrowing, per-section size check, what the consolidator is sent, a full mock run |
 | `catalog.test.ts`, `cli.test.ts`, `dbErrors.test.ts` | Model listing, command-line paths, and the plain-language database start-up errors |
 
 **Scripted models.** `llm/mock.ts` answers from the real prompt by persona, chosen by model name:
@@ -144,6 +145,8 @@ The dashboard follows a few rules so it stays consistent as it grows.
   radii, shadows and motion timings are tokens too. Reach for a token before writing a number.
 - **Colour has jobs.** Green, amber and red mean verdicts and nothing else. Teal is the agent colour (accents, primary buttons).
   Blue marks "counted by code".
+- **Plain words, in one place.** Every label, help text and result headline lives in `web/src/copy.ts` ("Must-pass checks", "AI examiners",
+  "What to fix"). Change a word there, not in the pages. Prefer a short everyday word over the PDF's term, and put the PDF term in the hint.
 - **Motion is gentle and optional.** Each page's blocks rise in once, one after another (the `.page` wrapper in `Layout`
   is keyed by the address). The score ring draws itself and counts up, the threshold marker slides to the score, hover and
   focus states ease, loading shows skeleton blocks. Everything respects `prefers-reduced-motion`.

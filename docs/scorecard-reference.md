@@ -17,6 +17,7 @@ hash. Two drafts to copy from, each in both formats:
 - [Writing a scorecard in Excel](#writing-a-scorecard-in-excel)
 - [Top-level fields](#top-level-fields)
 - [Which sheets the agent reads](#which-sheets-the-agent-reads)
+- [Sectioned scoring: `reads`](#sectioned-scoring-reads)
 - [Dimensions](#dimensions)
 - [Built-in checks](#built-in-checks)
 - [Bands: ratio to score](#bands-ratio-to-score)
@@ -159,6 +160,33 @@ artifact:
 - A header row is used to find columns by title. Duplicate titles become `Title`, `Title #2`.
 - A sheet or column that does not exist is refused up front with a message listing what does exist.
 
+## Sectioned scoring: `reads`
+
+By default every rater question is asked in **one** prompt holding every judged sheet. For a big schema that prompt is too large for a
+small model (the Talentra D2 prompt is about 20,500 tokens). A rater dimension can say which parts of the workbook it actually needs:
+
+```yaml
+- id: J02
+  name: Definitions are one clear sentence
+  measured_by: raters
+  reads: ["Tree[Path id|Name|Definition]"]      # only these three columns of the Tree
+- id: J04
+  name: Nothing the playbook or brief asked for is missing
+  measured_by: raters
+  reads: ["Tree[Path id|Name]", "Stage 1 steps", "Playbook map"]
+```
+
+- An entry is a sheet name from `sheets` or `context_sheets`, optionally narrowed to columns: `Sheet[col|col|col]`. Separate columns with `|`.
+  A narrowed list may only name columns that exist (the same check as `columns`).
+- Dimensions with the **same** `reads` share one prompt (a *section*). Each section is sent to the three raters on its own, one section after another.
+  Dimensions with no `reads` are asked together against the whole workbook, exactly as before, so old scorecards behave the same.
+- The consolidator is sent only the sheets behind the dimensions the raters disagreed on by more than a point, instead of the whole workbook.
+- In Excel, put the entries in the `Reads` column of the `Dimensions` sheet, separated by `;`.
+- **What it buys, and what it costs.** Each prompt gets much smaller, so a small model can take it. The total sent to each rater goes *up*,
+  because the instructions and any shared columns repeat in every section. Use it when the problem is a model's per-request limit.
+  Run `npm run prompt:size -- <workbook> <scorecard>` to see the numbers for your own files before spending any quota.
+- Keep a question's `reads` to what it truly needs, but not less: a rater cannot judge what it is not shown, and it may cite only cells it saw.
+
 ## Dimensions
 
 Each dimension says **who measures it** with `measured_by`:
@@ -264,7 +292,7 @@ file does not change it, but changing a weight, anchor or threshold does.
   Otherwise YAML reads it as a nested mapping and rejects the file. The error message says which line.
 - Put everything countable in code. Use raters only for judgement, and keep their anchors concrete and distinguishable.
 - Give every critical rater dimension anchors where **4** means "good, with one minor gap", because 4 is the gate.
-- Keep the rater prompt small with `columns`. A 169-node schema plus 194 allowed values is about 18,000 to 21,500 tokens per rater, more than
+- Keep the rater prompt small with `columns`, and per question with `reads`. A 169-node schema plus 194 allowed values is about 18,000 to 21,500 tokens per rater, more than
   the free tier of some providers allows per minute (the app checks this at submit and tells you).
 - Treat a scorecard like code: version it, review it, freeze it, then do not edit it. Change means a new `version`.
 - Excel or YAML is a matter of taste: they are interchangeable. Keep **one** of them as the master copy so they cannot drift apart.

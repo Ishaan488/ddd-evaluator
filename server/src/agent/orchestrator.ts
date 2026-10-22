@@ -14,15 +14,17 @@ import { WorkbookModel } from '../excel/workbook.js';
 import { inspectRoster, assertRosterReady } from '../llm/roster.js';
 import type { ProviderFactory } from '../llm/registry.js';
 import { candidatesFor, describeFailures, runWithFallback } from './fallback.js';
-import { buildRaterPrompt } from './prompt.js';
+import { buildRaterPrompt, buildRaterPromptForSection } from './prompt.js';
 import { PROMPT_VERSION } from './prompts/rater.js';
 import { buildConsolidatorUser } from './prompts/consolidator.js';
 import { sha256 } from '../util/hash.js';
 import { UserError } from '../util/errors.js';
-import { buildRaterResultsJson, consolidate } from './consolidate.js';
+import { buildRaterResultsJson, disputedDimensions, consolidate } from './consolidate.js';
 import { defaultReturnTo, finalizeFindings, findingsFromChecks } from './findings.js';
 import { runRater } from './rater.js';
 import type { CallMeta, DraftFinding, RaterOutcome } from './types.js';
+import { planSections, sheetsForDisagreements } from './sectionPlanner.js';
+import { serializeSheets } from '../excel/serialize.js';
 
 export type ProgressEvent =
   | { type: 'stage'; stage: RunStage }
@@ -60,6 +62,31 @@ const APP_VERSION = '1.0.0';
  * freeze the inputs, score the countable dimensions in code, let three blind raters
  * score the rest, consolidate, then apply the decision rule. It never writes to the workbook.
  */
+/** One rater's answers to every section, as a single outcome. A rater is only "failed" if it failed every section. */
+function mergeSectionOutcomes(done: RaterOutcome[]): RaterOutcome {
+  if (done.length === 1) return done[0]!;
+  const last = done[done.length - 1]!;
+  const sum = (pick: (o: RaterOutcome) => number | null | undefined) => done.reduce((total, o) => total + (pick(o) ?? 0), 0);
+  const known = (pick: (o: RaterOutcome) => number | null | undefined) => (done.some((o) => pick(o) != null) ? sum(pick) : null);
+  return {
+    model: last.model,
+    role: 'rater',
+    status: done.every((o) => o.status === 'failed') ? 'failed' : 'ok',
+    prompt: done.map((o) => o.prompt).join('\n---\n'),
+    promptHash: sha256(done.map((o) => o.promptHash).join(',')),
+    rawResponse: done.map((o) => o.rawResponse).join('\n---\n'),
+    attempts: sum((o) => o.attempts),
+    latencyMs: sum((o) => o.latencyMs),
+    inputTokens: known((o) => o.inputTokens),
+    outputTokens: known((o) => o.outputTokens),
+    error: done.find((o) => o.error)?.error,
+    dimensions: done.flatMap((o) => o.dimensions),
+    findings: done.flatMap((o) => o.findings),
+    strengths: done.flatMap((o) => o.strengths),
+    discarded: done.flatMap((o) => o.discarded),
+  };
+}
+
 export async function evaluate(args: EvaluateArgs): Promise<EvaluationOutput> {
   const now = args.now ?? (() => new Date());
   const startedAt = now();
@@ -106,48 +133,60 @@ export async function evaluate(args: EvaluateArgs): Promise<EvaluationOutput> {
   const settings = { temperature: args.models.settings.temperature, maxOutputTokens: args.models.settings.maxOutputTokens };
   const returnTo = defaultReturnTo(scorecard.gate);
 
-  const { rated, artifactText, user: raterUser } = buildRaterPrompt({ scorecard, wb, sources: args.sources, instructions });
+  const { rated, artifactText } = buildRaterPrompt({ scorecard, wb, sources: args.sources, instructions });
 
   const fallbackNotes: string[] = [];
   const ratingStarted = Date.now();
   let outcomes: RaterOutcome[] = [];
   if (rated.length > 0) {
     emit({ type: 'stage', stage: 'rating' });
-    outcomes = await Promise.all(
-      roster.raters.map(async (member) => {
-        const candidates = candidatesFor(member);
-        emit({ type: 'participant', id: member.id, status: 'running', provider: member.provider, model: member.model });
-        const { result: outcome, failures } = await runWithFallback(
-          candidates,
-          (candidate) => {
-            if (candidate !== candidates[0]) {
-              emit({ type: 'participant', id: member.id, status: 'running', provider: candidate.ref.provider, model: candidate.ref.model });
+
+    // One prompt per section (a scorecard without `reads` is a single section holding the whole workbook).
+    // The raters work in parallel inside a section; sections run one after another to stay inside rate limits.
+    const sections = planSections(scorecard);
+    const perRater = roster.raters.map((member) => ({ member, outcomes: [] as RaterOutcome[] }));
+    for (const section of sections) {
+      const sectionPrompt = buildRaterPromptForSection({ scorecard, section, wb, sources: args.sources, instructions });
+      const where = sections.length > 1 ? ` (${section.label})` : '';
+
+      await Promise.all(
+        perRater.map(async ({ member, outcomes: done }) => {
+          const candidates = candidatesFor(member);
+          emit({ type: 'participant', id: member.id, status: 'running', provider: member.provider, model: member.model });
+          const { result: outcome, failures } = await runWithFallback(
+            candidates,
+            (candidate) => {
+              if (candidate !== candidates[0]) {
+                emit({ type: 'participant', id: member.id, status: 'running', provider: candidate.ref.provider, model: candidate.ref.model });
+              }
+              return runRater({
+                model: candidate.ref,
+                provider: args.providers(candidate.ref.provider),
+                user: sectionPrompt.user,
+                expected: section.dimensions,
+                wb,
+                allowedSheets,
+                defaultReturnTo: returnTo,
+                settings,
+                maxInputTokens: candidate.maxInputTokens,
+              });
+            },
+            (o) => ({ ok: o.status === 'ok', error: o.error }),
+          );
+          if (failures.length > 0) {
+            if (outcome.status === 'ok') {
+              fallbackNotes.push(`Rater ${member.id}${where}: ${describeFailures(failures)}. ${outcome.model.model} answered instead (same model family).`);
+            } else {
+              outcome.error = describeFailures(failures);
             }
-            return runRater({
-              model: candidate.ref,
-              provider: args.providers(candidate.ref.provider),
-              user: raterUser,
-              expected: rated,
-              wb,
-              allowedSheets,
-              defaultReturnTo: returnTo,
-              settings,
-              maxInputTokens: candidate.maxInputTokens,
-            });
-          },
-          (o) => ({ ok: o.status === 'ok', error: o.error }),
-        );
-        if (failures.length > 0) {
-          if (outcome.status === 'ok') {
-            fallbackNotes.push(`Rater ${member.id}: ${describeFailures(failures)}. ${outcome.model.model} answered instead (same model family).`);
-          } else {
-            outcome.error = describeFailures(failures);
           }
-        }
-        emit({ type: 'participant', id: member.id, status: outcome.status, error: outcome.error, latencyMs: outcome.latencyMs, provider: outcome.model.provider, model: outcome.model.model });
-        return outcome;
-      }),
-    );
+          done.push(outcome);
+          emit({ type: 'participant', id: member.id, status: outcome.status, error: outcome.error, latencyMs: outcome.latencyMs, provider: outcome.model.provider, model: outcome.model.model });
+        }),
+      );
+    }
+    outcomes = perRater.map(({ outcomes: done }) => mergeSectionOutcomes(done));
+
     if (outcomes.every((o) => o.status === 'failed')) {
       const why = outcomes.map((o) => `${o.model.id}: ${o.error}`).join('; ');
       throw new Error(`All three raters failed, so nothing can be scored. ${why}`);
@@ -164,11 +203,15 @@ export async function evaluate(args: EvaluateArgs): Promise<EvaluationOutput> {
     emit({ type: 'stage', stage: 'consolidating' });
     emit({ type: 'participant', id: consolidatorRef.id, status: 'running', provider: roster.consolidator.provider, model: roster.consolidator.model });
     const consolidatorCandidates = candidatesFor(roster.consolidator);
+    // A sectioned scorecard keeps the consolidator's prompt small too: it only needs the sheets behind the
+    // dimensions the raters disagree on. Without `reads` it is sent the whole artifact, as before.
+    const partial = sheetsForDisagreements(planSections(scorecard), disputedDimensions(rated, outcomes));
     const consolidatorUser = buildConsolidatorUser({
       scorecard,
       dimensions: rated,
       raterResults: buildRaterResultsJson(rated, outcomes),
-      artifactText,
+      artifactText: partial ? serializeSheets(wb, [...partial.sheets, ...partial.context]) : artifactText,
+      artifactIsPartial: partial !== null,
       instructions,
     });
     const { result, failures } = await runWithFallback(

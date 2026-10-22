@@ -45,6 +45,20 @@ export interface ConsolidationResult {
   consolidatorFailed: boolean;
 }
 
+/** Dimensions where the usable raters differ by more than one point: the only ones whose claims the consolidator must check. */
+export function disputedDimensions(rated: DimensionSpec[], outcomes: RaterOutcome[]): Set<string> {
+  const ok = outcomes.filter((o) => o.status === 'ok');
+  const disputed = new Set<string>();
+  for (const spec of rated) {
+    const scores = ok.flatMap((o) => {
+      const score = o.dimensions.find((d) => d.id === spec.id)?.score;
+      return typeof score === 'number' ? [score] : [];
+    });
+    if (scores.length > 1 && Math.max(...scores) - Math.min(...scores) > 1) disputed.add(spec.id);
+  }
+  return disputed;
+}
+
 /** The three raters' validated results, in the form the consolidator reads them. */
 export function buildRaterResultsJson(rated: DimensionSpec[], outcomes: RaterOutcome[]): string {
   const ok = outcomes.filter((o) => o.status === 'ok');

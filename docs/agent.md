@@ -44,7 +44,8 @@ server/src/agent/
 │
 ├── rater.ts            stage 3: runs one rater, keeps only evidence-backed claims
 ├── fallback.ts           backup models: same participant, same family, tried in order
-├── prompt.ts             builds what the raters are sent (shared with the pre-submit check)
+├── sectionPlanner.ts     groups rater questions into sections by the sheets and columns they `reads`
+├── prompt.ts             builds what the raters are sent, one prompt per section (shared with the pre-submit check)
 ├── preflight.ts          before running: can enough raters take this prompt?
 ├── callModel.ts          one model call + the single "repair" retry on a bad reply
 ├── raterSchema.ts        the exact shape a model reply must have
@@ -114,7 +115,9 @@ The three raters run **in parallel**, each in its own call, and each is sent exa
 - the rules: *score each dimension 0-5 using only the anchors, cite the cell, never invent, reply with JSON only*. The rules also say the extra instructions may steer what to look at but can **never** change the anchors, the 0-5 scale, the evidence rule or the JSON format, and cannot say what score to give.
 
 Nothing else is in the prompt: no other rater's score, no author self-assessment, and no code-check results
-("blind rating", PDF p.13). The scorecard's `columns` option trims what raters see so the prompt stays small.
+("blind rating", PDF p.13). The scorecard's `columns` option trims what raters see so the prompt stays small. A rater question can also list `reads`, the sheets and
+columns it needs. Questions with the same `reads` form a **section**, and each section is a separate, smaller prompt (see *Sectioned scoring* in the scorecard reference).
+The three raters work in parallel inside a section, and sections run one after another. A rater is only left out of the result if it failed every section.
 
 What comes back is checked, not trusted:
 

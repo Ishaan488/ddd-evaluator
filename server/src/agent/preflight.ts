@@ -1,6 +1,6 @@
 import type { Scorecard } from '@ddd/shared';
 import type { WorkbookModel } from '../excel/workbook.js';
-import { buildRaterPrompt } from './prompt.js';
+import { buildAllRaterPrompts } from './prompt.js';
 import { RATER_SYSTEM } from './prompts/rater.js';
 import { estimateTokens } from './rater.js';
 
@@ -17,8 +17,10 @@ export interface RaterLimit {
 }
 
 export interface PreflightResult {
-  /** Estimated size of the prompt every rater receives. */
+  /** Estimated size of the largest prompt any rater receives (a sectioned scorecard sends several smaller ones). */
   tokens: number;
+  /** How many prompts each rater is sent. */
+  sections: number;
   ok: boolean;
   fits: Array<RaterLimit & { fits: boolean }>;
   /** Plain-words explanation when it is not ok. */
@@ -36,27 +38,35 @@ export function preflight(input: {
   instructions?: string;
   raters: RaterLimit[];
 }): PreflightResult {
-  const { rated, user } = buildRaterPrompt(input);
-  if (rated.length === 0) return { tokens: 0, ok: true, fits: input.raters.map((r) => ({ ...r, fits: true })) };
+  const prompts = buildAllRaterPrompts(input);
+  if (prompts.every((p) => p.prompt.rated.length === 0)) return { tokens: 0, sections: 0, ok: true, fits: input.raters.map((r) => ({ ...r, fits: true })) };
 
-  const tokens = estimateTokens(RATER_SYSTEM) + estimateTokens(user);
-  const canTake = (limit: number | undefined) => limit === undefined || tokens <= limit;
-  const fits = input.raters.map((r) => ({ ...r, fits: canTake(r.maxInputTokens) || (r.fallbackLimits ?? []).some(canTake) }));
-  const count = fits.filter((r) => r.fits).length;
-  if (count >= MIN_RATERS) return { tokens, ok: true, fits };
+  const sizes = prompts.map((p) => ({ label: p.label, tokens: estimateTokens(RATER_SYSTEM) + estimateTokens(p.prompt.user) }));
+  const tokens = Math.max(...sizes.map((x) => x.tokens));
+  const sections = sizes.length;
+  const canTake = (rater: RaterLimit, size: number) =>
+    [rater.maxInputTokens, ...(rater.fallbackLimits ?? [])].some((limit) => limit === undefined || size <= limit);
 
-  const blocked = fits
-    .filter((r) => !r.fits)
+  // Every section needs enough raters able to take it; a rater that misses one section can still score the others.
+  const fits = input.raters.map((r) => ({ ...r, fits: sizes.every((x) => canTake(r, x.tokens)) }));
+  const tooBig = sizes.filter((x) => input.raters.filter((r) => canTake(r, x.tokens)).length < MIN_RATERS);
+  if (tooBig.length === 0) return { tokens, sections, ok: true, fits };
+
+  const worst = tooBig.reduce((a, b) => (b.tokens > a.tokens ? b : a));
+  const count = input.raters.filter((r) => canTake(r, worst.tokens)).length;
+  const blocked = input.raters
+    .filter((r) => !canTake(r, worst.tokens))
     .map((r) => `${r.id} (${r.model}, limit ${r.maxInputTokens!.toLocaleString('en-US')}${r.fallbackLimits?.length ? ', and its fallbacks too' : ''})`)
     .join(', ');
   return {
     tokens,
+    sections,
     ok: false,
     fits,
     problem:
-      `This evaluation sends about ${tokens.toLocaleString('en-US')} tokens to each rater, but only ${count} of ${fits.length} raters can take that: ` +
+      `This evaluation sends about ${worst.tokens.toLocaleString('en-US')} tokens to each rater${sections > 1 ? ` in ${worst.label}` : ''}, but only ${count} of ${fits.length} raters can take that: ` +
       `${blocked} cannot. At least ${MIN_RATERS} are needed for the result to mean anything. ` +
-      'To fix it: (1) add a "columns" list to the scorecard\'s sheets so the raters see less, (2) use a smaller scorecard, ' +
-      '(3) give a rater a model or plan with a larger limit (then raise or remove its maxInputTokens in server/config/models.json).',
+      'To fix it: (1) add a "reads" list to each rater dimension, such as Tree[Path id|Name|Definition], so each section sends only what it needs, ' +
+      '(2) add a "columns" list to the scorecard\'s sheets, (3) give a rater a model or plan with a larger limit (then raise or remove its maxInputTokens in server/config/models.json).',
   };
 }

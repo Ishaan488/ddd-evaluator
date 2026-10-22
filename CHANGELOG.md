@@ -2,6 +2,29 @@
 
 All notable changes to the DDD Evaluator. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.4.0] - 2026-10-23
+
+### Added
+- **Sectioned scoring.** A rater dimension can list `reads`: the sheets, and optionally columns, it needs (`Tree[Path id|Name|Definition]`). Questions
+  with the same `reads` share a prompt (a section); each section goes to the three raters on its own and the results are merged. Scorecards without
+  `reads` behave exactly as before. In Excel the entries go in a `Reads` column of the `Dimensions` sheet.
+- The consolidator is sent only the sheets behind dimensions the raters disagree on by more than a point (everything, as before, for unsectioned scorecards).
+- The size check at submit now judges each section on its own and names the section that is too big.
+- `npm run prompt:size -- <workbook> <scorecard>` shows, without any API call, the tokens per sheet, per section and which raters can take each.
+- `samples/talentra/talentra-schema-d2-sectioned.yaml`: the D2 scorecard with `reads` (same questions, weights and anchors).
+- `evaluate` also writes `run-log.json` (models, real token counts, timings).
+- **Dashboard rewrite in plain words.** The report page now shows the result, a "What to do next" list and tabs (Scores, What to fix, Examiner agreement, Needs your input,
+  Path to green, Strengths, Technical details). Scores are grouped by who checked them and colour-coded; hints explain the terms; downloads are in one menu.
+  All wording lives in `web/src/copy.ts`.
+- GitHub Actions CI: typecheck, tests, build and docs check on every push and pull request, with mock models only (no API keys).
+
+### Changed
+- The orchestrator runs every scorecard through one section loop (an unsectioned scorecard is one section) instead of two copies of the rater code.
+
+### Verified
+- 187 server tests and the web tests pass. One live run of the sectioned D2 scorecard on free Groq and Gemini keys: AMBER 84.8 in 3 min 56 s (was impossible before),
+  partial because of provider limits (details in the README).
+
 ## [1.3.0] - 2026-10-23
 
 ### Added

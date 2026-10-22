@@ -69,6 +69,13 @@ export interface DimensionSpec {
   /** Human dimensions: what a person has to supply. */
   needs?: string;
   returnTo?: ReturnTo;
+  /**
+   * Optional. Sheet names (matching artifact.sheets or artifact.context) that this
+   * rater dimension actually needs to read. When set, only those sheets are included
+   * in the prompt for this dimension's section — keeping token counts small.
+   * When absent, the dimension sees the full workbook (backward-compatible default).
+   */
+  reads?: string[];
 }
 
 export interface Scorecard {
