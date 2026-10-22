@@ -4,7 +4,8 @@
  *   1. every relative link and image in the Markdown files points at a file that exists,
  *   2. every #anchor points at a heading that exists (GitHub's slug rules),
  *   3. every repository path written in backticks exists,
- *   4. every folder tree drawn in a code block matches the real folders.
+ *   4. every folder tree drawn in a code block matches the real folders,
+ *   5. every Mermaid block marked `%% source: <file>` is identical to that file.
  * Run:  npm run docs:check
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
@@ -138,6 +139,15 @@ for (const file of markdownFiles(root)) {
   });
 
   for (const block of blocks) {
+    const marker = block.lang === 'mermaid' ? /^%% source: (\S+)$/.exec(block.lines[0] ?? '') : null;
+    if (marker) {
+      const sourceFile = path.join(root, marker[1]);
+      if (!existsSync(sourceFile)) fail(file, `mermaid source \`${marker[1]}\` does not exist`);
+      else if (readFileSync(sourceFile, 'utf8').trimEnd() !== block.lines.slice(1).join('\n').trimEnd()) {
+        fail(file, `embedded mermaid block differs from \`${marker[1]}\`; copy the source into the block`);
+      }
+      continue;
+    }
     const looksLikeTree = block.lines.some((l) => /[├└]──/.test(l));
     if (!looksLikeTree) continue;
     for (const p of treePaths(block.lines)) {

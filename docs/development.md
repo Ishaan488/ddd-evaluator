@@ -173,6 +173,11 @@ bash docs/diagrams/render.sh      # needs Node; the first run downloads a headle
 
 Commit both the source and the rendered SVG.
 
+The main architecture diagram, `docs/diagrams/00-architecture.mmd`, is different: it is pasted **as live Mermaid** into
+the README and `docs/architecture.md` (GitHub draws it, so fonts and themes always fit). The first line of each pasted
+block, `%% source: docs/diagrams/00-architecture.mmd`, tells `npm run docs:check` to verify the copy still matches the
+source. Edit the `.mmd` file, then paste its text into both blocks.
+
 ### Add a dashboard page
 
 Add a file in `web/src/pages/`, a route in `App.tsx`, and a nav link in `components/Layout.tsx`. Fetch with

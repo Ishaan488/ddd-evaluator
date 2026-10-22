@@ -25,7 +25,8 @@ Sources are in [`diagrams/`](diagrams/) (Mermaid) and the rendered SVGs in [`ima
 
 | Diagram | Used in |
 |---|---|
-| `images/architecture.svg` (hand-drawn layered view) | README, architecture.md |
+| `00-architecture` (live Mermaid, drawn by GitHub) | README, architecture.md |
+| `images/architecture.svg` (the same view as a hand-drawn static image) | linked from both as a fallback |
 | `01-system-context` | architecture.md |
 | `02-agent-pipeline` | agent.md |
 | `03-evaluation-sequence` | architecture.md |
