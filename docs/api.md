@@ -25,12 +25,14 @@ The exact response types are in [`shared/src/types.ts`](../shared/src/types.ts) 
 | `GET /api/config` | The evaluator roster and whether it is ready |
 | `GET /api/projects` | All projects with their latest run and a score history |
 | `GET /api/projects/:id` | One project's iterations, trend, dimension heatmap and finding diffs |
-| `POST /api/runs` | Submit a workbook and scorecard for evaluation |
+| `POST /api/runs` | Submit a file to check (`.xlsx` or `.pdf`) and an approved scorecard for evaluation |
+| `POST /api/scorecards/import` | Draft a scorecard in this app's format from a scorecard in any layout (multipart: `scorecard`, optional `document`) |
+| `POST /api/scorecards/check` | Re-check an edited draft; with `approvedBy` it also freezes it and records who approved it and when |
 | `GET /api/scorecard-template.xlsx` | Download a starter Excel scorecard |
 | `GET /api/runs/:id` | One run: progress while running, the full report when done |
 | `POST /api/runs/:id/evidence` | Record evidence a person supplies for a human-only dimension |
 | `POST /api/runs/:id/override` | Override the verdict, with a reason |
-| `GET /api/runs/:id/report.:ext` | Download the report as `xlsx`, `md` or `json` |
+| `GET /api/runs/:id/report.:ext` | Download the report as `xlsx`, `pdf`, `md` or `json` |
 
 ### `GET /api/config`
 
@@ -135,10 +137,23 @@ Returns the updated run (same shape as `GET /api/runs/:id`).
 `decision` is `green`, `amber` or `red`; `reason` is required (at least 5 characters). The agent's own verdict stays
 in `agentDecision` and in the report. Returns the updated run.
 
-### `GET /api/runs/:id/report.xlsx | .md | .json`
+### `GET /api/runs/:id/report.xlsx | .pdf | .md | .json`
 
-The report as a downloadable file: the PDF's eight sections as an eight-sheet workbook, as readable Markdown,
-or as JSON. `409` if the run has no finished report. `404` for any other extension.
+The report as a downloadable file: the PDF's eight sections as a workbook (with a first sheet, "What to improve", that lists the fixes in order),
+as a printable PDF that opens with the same list, as readable Markdown, or as JSON. `409` if the run has no finished report. `404` for any other extension.
+
+Every finished report is also saved as these files under `data/reports/<project>/iteration-<n>/`, whatever the database mode.
+
+### `POST /api/scorecards/import`
+
+Multipart form with `scorecard` (any layout: `.xlsx`, `.pdf`, `.yaml`, `.json`, `.csv` or text) and an optional `document` (the `.xlsx` or `.pdf` it will judge,
+so the draft can name real sheets or page ranges). Returns `{ yaml, questions, summary, uncertain, adjustments, sourceText, model }`. The draft is never frozen.
+`questions` lists each question with who marks it (`examiners` or `person`), its weight, whether it is must-pass, and what it reads.
+
+### `POST /api/scorecards/check`
+
+JSON `{ yaml, approvedBy? }`. Validates the YAML as a scorecard. With a non-empty `approvedBy` the returned scorecard is frozen and its `approval` line says who
+approved it and when. Returns `{ yaml, frozen, summary }`, or `400` with the problems.
 
 ### `GET /api/projects/:id`
 

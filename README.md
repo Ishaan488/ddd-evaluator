@@ -28,6 +28,7 @@ server/src/agent/
 ├── consolidate.ts       the 4th model + the code that enforces the PDF's rules on it
 ├── verdict.ts           green / amber / red, by rule
 ├── pathToGreen.ts       the smallest set of fixes that would change the verdict
+├── repeats.ts           median of an examiner's repeated runs (steadier scores)
 ├── findings.ts          findings from code checks, ids, ordering
 ├── evidence.ts          "does this cited cell really exist?"
 ├── callModel.ts  raterSchema.ts  types.ts
@@ -47,12 +48,12 @@ flowchart TB
 
   subgraph WEB["PRESENTATION · web/ · React 19 + Vite"]
     direction LR
-    P1["Projects"] ~~~ P2["New evaluation"] ~~~ P3["Run report"] ~~~ P4["History"] ~~~ P5["Models"]
+    P1["Projects"] ~~~ P2["New evaluation"] ~~~ P6["Import a<br/>scorecard"] ~~~ P3["Run report"] ~~~ P4["History"] ~~~ P5["Models"]
   end
 
   subgraph API["API + SERVICE · server/src/api/ · Express 5"]
     direction LR
-    RT["Routes<br/>app.ts"] ~~~ SV["EvaluationService<br/>service.ts<br/>runs in background"] ~~~ DL["Report downloads<br/>xlsx, md, json"]
+    RT["Routes<br/>app.ts"] ~~~ SV["EvaluationService<br/>service.ts<br/>runs in background"] ~~~ SI["Scorecard import<br/>draft, check,<br/>person approves"] ~~~ DL["Report downloads<br/>xlsx, pdf, md, json"]
   end
 
   subgraph AGENT["EVALUATOR AGENT · server/src/agent/ · 3 raters + 1 consolidator · verdict decided by code"]
@@ -61,7 +62,7 @@ flowchart TB
 
     subgraph STAGES["The six stages"]
       direction LR
-      S1["1 Freeze<br/>hash workbook<br/>+ scorecard"] --> S2["2 Count<br/>exact checks<br/>in code"] --> S3["3 Rate x3<br/>blind, 3 model<br/>families"] --> S4["4 Consolidate<br/>a 4th model<br/>reconciles"] --> S5["5 Decide<br/>verdict<br/>by rule"] --> S6["6 Explain<br/>findings, path<br/>to green"]
+      S1["1 Freeze<br/>hash workbook<br/>+ scorecard"] --> S2["2 Count<br/>exact checks<br/>in code"] --> S3["3 Rate x3<br/>blind, 3 families,<br/>median of repeats"] --> S4["4 Consolidate<br/>a 4th model<br/>reconciles"] --> S5["5 Decide<br/>verdict<br/>by rule"] --> S6["6 Explain<br/>findings, path<br/>to green"]
     end
 
     subgraph GUARD["GUARDRAILS · enforced in code, not in prompts"]
@@ -74,17 +75,17 @@ flowchart TB
 
   subgraph ADAPT["ADAPTERS · swap one without touching the agent"]
     direction LR
-    A1["Workbook<br/>reader<br/>excel/"] ~~~ A2["Report<br/>renderer<br/>report/"] ~~~ A3["Store<br/>db/<br/>Postgres, SQL"] ~~~ A4["Provider<br/>adapters<br/>llm/"]
+    A1["Workbook + PDF<br/>reader<br/>excel/"] ~~~ A2["Report<br/>renderer<br/>report/"] ~~~ A3["Store<br/>db/<br/>Postgres, SQL"] ~~~ A4["Provider<br/>adapters<br/>llm/"]
   end
 
   subgraph DATA["YOUR DATA · stays on your machine"]
     direction LR
-    UP[["Upload folder<br/>data/uploads<br/>copies, never edited"]] ~~~ PG[("Postgres 16<br/>docker compose<br/>up -d db")]
+    UP[["Upload folder<br/>data/uploads<br/>copies, never edited"]] ~~~ RP[["Saved reports<br/>data/reports<br/>json, md, xlsx, pdf"]] ~~~ PG[("Postgres 16<br/>docker compose<br/>up --build")]
   end
 
   subgraph MODELS["MODEL PROVIDERS · approved models only"]
     direction LR
-    GQ["Groq"] ~~~ GM["Gemini"] ~~~ OA["Any OpenAI-<br/>style API"]
+    GQ["Groq"] ~~~ GM["Gemini"] ~~~ BR["Amazon<br/>Bedrock"] ~~~ OA["Any OpenAI-<br/>style API"]
   end
 
   PEOPLE -->|browser| WEB
@@ -101,11 +102,11 @@ flowchart TB
   classDef store fill:#1e3a8a,stroke:#7aa2f7,color:#ffffff
   classDef ext fill:#92400e,stroke:#f5b13d,color:#ffffff
   class AU,PR,ME person
-  class P1,P2,P3,P4,P5,RT,SV,DL,A1,A2,A3,A4 ui
+  class P1,P2,P6,P3,P4,P5,RT,SV,SI,DL,A1,A2,A3,A4 ui
   class ORCH,S1,S2,S3,S4,S5,S6 agent
   class G1,G2,G3,G4 guard
-  class UP,PG store
-  class GQ,GM,OA ext
+  class UP,RP,PG store
+  class GQ,GM,BR,OA ext
   style AGENT fill:transparent,stroke:#14b8a6,stroke-width:3px
   style STAGES fill:transparent,stroke:#14b8a6
   style GUARD fill:transparent,stroke:#14b8a6,stroke-dasharray:4 4
@@ -128,10 +129,10 @@ loop, the data model, deployment. The security view is in [docs/security.md](doc
 
 1. **Freeze**: read the workbook once, hash it and the scorecard, refuse an unfrozen scorecard or an invalid roster.
 2. **Count in code**: everything countable (depth, blanks, duplicates, allowed lists) is scored exactly by code.
-3. **Rate**: three blind raters score the judgement dimensions 0-5, each citing the cell it relied on.
+3. **Rate**: three blind raters score the judgement dimensions 0-5, each citing the cell (or PDF page and line) it relied on. Each can score a section several times and the median is kept; every judged score is labelled steady, shaky or single-examiner.
 4. **Consolidate**: a fourth model reconciles; code enforces the rules (the lower score stands if a disagreement can't be resolved).
-5. **Decide**: a function applies the PDF's rule. A HIGH-risk finding blocks green; a critical gate must reach 4.
-6. **Report**: eight sections as `.xlsx`, `.md` and `.json`, with a path to green and a full audit trail.
+5. **Decide**: a function applies the PDF's rule. A HIGH-risk finding blocks green; a critical gate must reach 4; a scorecard's `red_at_or_below` line forces red only for a score the examiners agreed on.
+6. **Report**: eight sections as `.xlsx`, `.pdf`, `.md` and `.json` (the PDF and the first Excel sheet open with a prioritised "What to improve" list), with a path to green and a full audit trail.
 
 | The report, with the verdict, critical gates and scores | Score trend across iterations |
 |---|---|
@@ -148,9 +149,19 @@ MOCK_LLM=1 npm run start           # http://localhost:4000 with scripted models,
 npm run seed:demo -w server        # second terminal: three iterations of the sample schema
 ```
 
+Every finished report is also saved to `data/reports/<project>/iteration-<n>/` (`.json`, `.md`, `.xlsx`, `.pdf`), even on this in-memory database, which forgets its history when the server stops.
+
 The sidebar says **Mock models (demo)** so a demo is never mistaken for a real evaluation.
 
-**Real run** (Postgres + Groq + Gemini):
+**One command, everything saved to Postgres** (needs Docker; keys and models come from `.env`):
+
+```bash
+docker compose up --build          # http://localhost:4000, data kept in the ddd_pgdata volume
+MOCK_LLM=1 docker compose up       # the same, with scripted demo models and no cost
+docker compose down                # stop; add -v only to delete the saved data
+```
+
+**Real run without Docker for the app** (Postgres + Groq + Gemini):
 
 ```bash
 cp .env.example .env               # add GROQ_API_KEY, GEMINI_API_KEY, DATABASE_URL
@@ -169,7 +180,7 @@ npm run evaluate -- --workbook samples/talentra/Talentra-Feature-Discovery-Dashb
 
 **The scorecard can be an Excel file or YAML.** Download a ready-to-edit Excel template from the *New evaluation* page, or use
 `samples/talentra/talentra-schema-d2.xlsx`. Both formats give the identical scorecard. The page also has a box for **extra
-instructions** to the examiners, which are saved with the result. See [docs/scorecard-reference.md](docs/scorecard-reference.md).
+instructions** to the examiners, which are saved with the result. See [docs/scorecard-reference.md](docs/scorecard-reference.md). A scorecard in any other layout can be [imported as a reviewed draft](#importing-a-scorecard-from-another-layout).
 
 Full setup, configuration and troubleshooting: [docs/operations.md](docs/operations.md).
 
@@ -192,28 +203,28 @@ ddd/
 │   ├── diagrams/                   Mermaid sources + render.sh
 │   └── images/                     rendered diagrams and dashboard screenshots
 │
-├── samples/talentra/             the Talentra workbook and two DRAFT scorecards, each as .yaml and .xlsx (need mentor approval)
+├── samples/talentra/             the Talentra workbook and DRAFT scorecards (.yaml and .xlsx, including a sectioned one and one for a PDF); all need mentor approval
 │
 ├── scripts/                      checkDocs.mjs: verifies every doc link, anchor, path and folder tree
 │
 ├── shared/src/                   types and scorecard schema shared by server and dashboard
 │
 ├── server/
-│   ├── config/                     models.json (live roster) · models.mock.json (demo roster)
-│   ├── scripts/                    modelsCheck.ts · seedDemo.ts · patchCells.ts · scorecardToExcel.ts
+│   ├── config/                     models.json (live roster) · models.bedrock.json (Amazon Bedrock) · models.mock.json (demo roster)
+│   ├── scripts/                    modelsCheck.ts · promptSize.ts · importScorecard.ts · seedDemo.ts · patchCells.ts · scorecardToExcel.ts · importScorecard.ts
 │   ├── src/
 │   │   ├── agent/                  ★ the evaluator agent
 │   │   ├── api/                    Express routes and EvaluationService
 │   │   ├── db/                     pool, migrations (plain SQL), store
-│   │   ├── excel/                  read-only .xlsx reader and the text the raters are sent
-│   │   ├── llm/                    Groq / Gemini / OpenAI-compatible adapters, roster rules, mock provider
-│   │   ├── report/                 the eight-section report as .xlsx and .md
-│   │   ├── scorecard/              scorecard parsing and hashing (YAML, JSON or Excel)
+│   │   ├── excel/                  read-only .xlsx and PDF readers, page ranges, and the text the raters are sent
+│   │   ├── llm/                    Groq / Gemini / Bedrock / OpenAI-compatible adapters, roster rules, mock provider
+│   │   ├── report/                 the eight-section report as .xlsx, .pdf and .md, plus the "what to improve" list
+│   │   ├── scorecard/              scorecard parsing and hashing (YAML, JSON or Excel), and the AI-assisted import (importer.ts, importDraft.ts, importPrompt.ts)
 │   │   └── util/
-│   └── tests/                    172 tests
+│   └── tests/                    225 tests
 │
 └── web/src/                      the dashboard
-    ├── pages/                      Projects · New evaluation · Run · Project history · Models
+    ├── pages/                      Projects · New evaluation · Import a scorecard · Run · Project history · Models
     ├── components/  styles/  api.ts  hooks.ts  format.ts
 ```
 
@@ -234,14 +245,14 @@ ddd/
 ## Technology
 
 TypeScript (strict) on Node 22 · Express 5 · React 19 + Vite + React Router (plain CSS on design tokens, one bundled typeface, Inter) · Postgres 16 (Docker), plain SQL ·
-Zod validation at every boundary · Vitest. Models over plain HTTPS: Groq and any OpenAI-compatible API, and Gemini.
+Zod validation at every boundary · Vitest. Models over plain HTTPS: Groq and any OpenAI-compatible API, Gemini and Amazon Bedrock.
 No agent framework and no ORM; the reasons are in [docs/decisions.md](docs/decisions.md).
 
 ## Quality
 
 ```bash
 npm run typecheck      # shared, server, web
-npm test               # 172 server tests + 3 dashboard tests, all deterministic
+npm test               # 225 server tests + 3 dashboard tests, all deterministic
 npm run docs:check     # every doc link, anchor, path and folder tree is real
 ```
 
@@ -249,6 +260,45 @@ The tests follow the PDF's rules: every guardrail, every kind of misbehaving mod
 outages, out-of-range consolidation), **planted defects in the real Talentra file that must never come out green**,
 the provider adapters, the API, and iteration history. The same API tests pass on a real Postgres
 (`TEST_DATABASE_URL=...`). Details in [docs/development.md](docs/development.md#testing).
+
+## Evaluating a PDF
+
+The file to check can be an `.xlsx` or a `.pdf`. A PDF is read as text: each page is a sheet (`Page 1`, `Page 2`, ...) and each line a cell in
+column A, so evidence is cited as `Page 3!A12`. Because a long PDF is far too big for one prompt, a PDF scorecard gives each question a page
+range in `reads` (`reads: ["Page 7-9"]`); see `samples/talentra/talentra-output-schema-pdf.yaml`. Only rater-scored questions apply, since the
+counting checks need Excel columns. Scanned PDFs (pictures of pages) have no text and are refused. Check sizes first, with no API calls:
+`npm run prompt:size -- file.pdf scorecard.yaml`.
+
+## Using Amazon Bedrock instead of Groq and Gemini
+
+One Bedrock API key can supply all three raters and the consolidator from different model families. Nothing changes for the default setup;
+Bedrock is a second roster file you switch on with an environment variable:
+
+```
+AWS_BEARER_TOKEN_BEDROCK=your-key
+AWS_REGION=us-east-1
+MODELS_CONFIG=server/config/models.bedrock.json
+```
+
+`models.bedrock.json` also sets `sectionConcurrency: 2` (two sections scored at the same time) and `repeats: 3` (each examiner scores each section three times and the median is kept, which steadies scores but triples the cost; set `repeats` to 1 to spend less). Free tiers keep the defaults of 1 to stay inside their rate limits.
+
+Each model must be enabled for your account in the Bedrock console, in that region (a model can list as offered and still be refused for billing). The model ids in `models.bedrock.json` are starting points:
+run `npm run models:check -- --ping` to see which ids your account offers and whether each one answers, then edit the file. Only the
+bearer-token (Bedrock API key) sign-in is supported, not AWS access-key signing.
+
+## Importing a scorecard from another layout
+
+The evaluator only scores against a scorecard in its own format, but it can draft one from any other. Open **Import a scorecard** in the sidebar,
+add the scorecard (Excel, PDF, YAML, JSON, CSV or text) and, if you have it, the file it will judge. One examiner model drafts the scorecard; code checks it.
+You then compare the draft with the original side by side, edit it, tick that you checked it, enter your name and approve it. Only an approved
+(frozen) scorecard can be used. Things to know:
+
+- The model only labels each criterion "judged" or "counted"; code does the rest. A dimension with both kinds is split into a judged question and a `-counted` question for a person, and the weight is shared by how many criteria each kind has. A page range longer than the roster can read is cut and the cut is listed. On the mentor's GS-1 file (13 dimensions, 58 criteria) this produced the right 21 questions, weights adding to 100, 7 must-pass gates and the red line, in one 66-second Bedrock call.
+- The draft can still misread a rule, so the "Check these first" list and your own comparison matter.
+- The same thing from a terminal, with no browser: `npm run scorecard:import -- <scorecard-file> [document.pdf] [--out folder]` writes `draft.yaml` and `notes.json`.
+- Criteria that need counting or a person (lists, interviews, sign-offs) become "needs a person"; the agent cannot count them from a document.
+- Rules the format cannot hold (caps, averages, formulas) are listed, not applied. A scorecard may set `red_at_or_below` for gate dimensions.
+- The import uses the first rater with no prompt-size limit (Gemini in the default roster), so it needs that provider's quota.
 
 ## Status and limits
 
@@ -271,6 +321,10 @@ Read this before relying on a verdict.
   Groq counted one request at 12,499 tokens against an estimate of about 7,700). So J01 to J04 were scored by two examiners, J05 by one, and J06 was
   left unscored because its only claim had no valid evidence. The agent said so in the report instead of guessing. A full 3+1 result on the big schema still needs
   higher-limit keys. Try your own files without spending quota: `npm run prompt:size -- <workbook> <scorecard>`.
+- **Scorecard import is new and not measured.** It has run live four times on the mentor's GS-1 file and each draft needed fixes (code now enforces weights, page limits and the frozen flag, but a person must still check every draft).
+- **Bedrock works on one account, in one small run.** `models.bedrock.json` (GLM 5, Llama 3.3 70B, Mistral Large, Nova Pro) answered every ping, and the Step 04 scorecard ran end to end on it in 46 seconds with all three raters and the consolidator succeeding (RED 72.8). Claude was refused on that account (a billing subscription was missing). The large schema and a full PDF have not been run on it.
+- **A PDF is read in small slices.** Each question reads at most three pages, so a long PDF is a sampled review, not a full audit.
+- **Scores vary between runs.** The same PDF gave RED 66.2 once and AMBER 80.3 once. Repeats (median of several runs) and the steady/shaky label reduce and show this, but nothing here is calibrated against human scores yet.
 - **Free tiers are fragile.** Gemini's newer models have small quotas and busy periods; Groq's free limits are about 7,000 to 8,000 tokens a minute.
   Fallback models (same family) soften this; a paid or higher-limit key removes it.
 - **No authentication, no TLS, no rate limiting.** Put it behind your reverse proxy with sign-in for shared use.
@@ -281,5 +335,5 @@ Read this before relying on a verdict.
 ## Roadmap
 
 Levels 2-4 (generator agents, template pipeline, raw thoughts to delivery) are out of scope: the PDF says each level
-is earned with evidence from the one below. Next for Level 1: calibration against human scores, sectioned evaluation,
+is earned with evidence from the one below. Next for Level 1: calibration against human scores (including the accuracy of scorecard import), covering more of a long PDF per question,
 the gate tracker, and authentication. Details in [docs/pdf-traceability.md](docs/pdf-traceability.md#not-built-yet).

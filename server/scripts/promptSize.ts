@@ -1,7 +1,7 @@
 /**
  * Shows how many tokens each rater would be sent, before and after sectioning. It makes no API calls.
  *
- *   npm run prompt:size -- <workbook.xlsx> <scorecard.yaml>
+ *   npm run prompt:size -- <workbook.xlsx|pdf> <scorecard.yaml>
  *
  * "Whole workbook" ignores any `reads` lists, which is what every rater was sent before sectioning existed.
  */
@@ -9,6 +9,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { loadAppConfig } from '../src/config.js';
 import { WorkbookModel } from '../src/excel/workbook.js';
+import { resolvePageRanges } from '../src/excel/pageRanges.js';
 import { serializeSheet } from '../src/excel/serialize.js';
 import { buildAllRaterPrompts } from '../src/agent/prompt.js';
 import { RATER_SYSTEM } from '../src/agent/prompts/rater.js';
@@ -24,7 +25,8 @@ const resolve = (f: string) => path.resolve(process.env.INIT_CWD ?? process.cwd(
 const n = (v: number) => v.toLocaleString('en-US').padStart(7);
 
 const wb = await WorkbookModel.load(await readFile(resolve(workbookArg)));
-const { scorecard } = await parseScorecardFile(await readFile(resolve(scorecardArg)), path.basename(scorecardArg));
+const parsed = await parseScorecardFile(await readFile(resolve(scorecardArg)), path.basename(scorecardArg));
+const scorecard = resolvePageRanges(parsed.scorecard, wb);
 const system = estimateTokens(RATER_SYSTEM);
 
 console.log(`\n${scorecard.id}: tokens per sheet (estimate, chars / 2.7)`);

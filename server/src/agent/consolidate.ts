@@ -1,5 +1,6 @@
 import type {
   CellRef,
+  Confidence,
   DimensionResult,
   DimensionSpec,
   Evidence,
@@ -161,14 +162,14 @@ function reconcileDimension(
 ): DimensionResult {
   const ok = input.outcomes.filter((o) => o.status === 'ok');
   const raterScores: Record<string, number | null> = {};
-  const given: Array<{ raterId: string; score: number; rationale: string; evidence: Evidence[] }> = [];
+  const given: Array<{ raterId: string; score: number; rationale: string; evidence: Evidence[]; repeatSpread: number }> = [];
   let abstained = 0;
 
   for (const outcome of input.outcomes) {
     const dim = outcome.dimensions.find((d) => d.id === spec.id);
     raterScores[outcome.model.id] = dim?.score ?? null;
     if (outcome.status !== 'ok' || !dim) continue;
-    if (dim.score !== null) given.push({ raterId: outcome.model.id, score: dim.score, rationale: dim.rationale, evidence: dim.evidence });
+    if (dim.score !== null) given.push({ raterId: outcome.model.id, score: dim.score, rationale: dim.rationale, evidence: dim.evidence, repeatSpread: dim.repeatSpread ?? 0 });
     else if (dim.notMeasurable) abstained += 1;
   }
 
@@ -242,6 +243,10 @@ function reconcileDimension(
     flagged = true;
   }
 
+  // Steady: two or more examiners within a point of each other, and each stable across its own repeats.
+  const unstable = given.some((g) => g.repeatSpread > 1);
+  const confidence: Confidence = given.length === 1 ? 'single' : spread <= 1 && !unstable ? 'steady' : 'shaky';
+
   const supporting = given.find((g) => g.score === consolidated) ?? given[0]!;
   const evidence = consolidatorEvidence.length > 0 && proposed === consolidated ? consolidatorEvidence : supporting.evidence;
   return {
@@ -250,6 +255,7 @@ function reconcileDimension(
     spread,
     resolution,
     flagged,
+    confidence,
     rationale: (fromConsolidator?.rationale || supporting.rationale || '').trim(),
     evidence: evidence.slice(0, 5),
   };

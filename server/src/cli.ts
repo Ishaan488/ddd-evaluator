@@ -9,6 +9,7 @@ import { evaluate } from './agent/index.js';
 import { createProviderFactory } from './llm/registry.js';
 import { assembleReport } from './report/assemble.js';
 import { renderMarkdown } from './report/markdown.js';
+import { renderPdf } from './report/pdf.js';
 import { renderXlsx } from './report/xlsx.js';
 import { parseScorecardFile } from './scorecard/parse.js';
 import { UserError } from './util/errors.js';
@@ -17,7 +18,7 @@ import { UserError } from './util/errors.js';
 export const resolveFromUser = (file: string, env: NodeJS.ProcessEnv = process.env): string =>
   path.resolve(env.INIT_CWD ?? process.cwd(), file);
 
-const USAGE = `Usage: npm run evaluate -- --workbook <file.xlsx> --scorecard <file.yaml> [options]
+const USAGE = `Usage: npm run evaluate -- --workbook <file.xlsx|file.pdf> --scorecard <file.yaml> [options]
 
   --workbook   the schema or output workbook to evaluate
   --scorecard  the frozen scorecard (.xlsx, .yaml or .json)
@@ -85,6 +86,7 @@ async function main(): Promise<void> {
   await writeFile(path.join(out, 'run-log.json'), JSON.stringify(result.runLog, null, 2));
   await writeFile(path.join(out, 'report.md'), renderMarkdown(report));
   await writeFile(path.join(out, 'report.xlsx'), await renderXlsx(report));
+  await writeFile(path.join(out, 'report.pdf'), await renderPdf(report));
 
   const { verdict } = report;
   console.log(`\nVerdict: ${verdict.decision.toUpperCase()}  score ${verdict.weightedScore}`);

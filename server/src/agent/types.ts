@@ -8,6 +8,8 @@ export interface RaterDimension {
   anchor?: string;
   rationale: string;
   evidence: Evidence[];
+  /** When a rater scored this more than once: highest minus lowest score across the repeats. */
+  repeatSpread?: number;
 }
 
 export interface RaterFinding {

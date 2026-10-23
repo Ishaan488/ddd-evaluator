@@ -54,12 +54,12 @@ flowchart TB
 
   subgraph WEB["PRESENTATION · web/ · React 19 + Vite"]
     direction LR
-    P1["Projects"] ~~~ P2["New evaluation"] ~~~ P3["Run report"] ~~~ P4["History"] ~~~ P5["Models"]
+    P1["Projects"] ~~~ P2["New evaluation"] ~~~ P6["Import a<br/>scorecard"] ~~~ P3["Run report"] ~~~ P4["History"] ~~~ P5["Models"]
   end
 
   subgraph API["API + SERVICE · server/src/api/ · Express 5"]
     direction LR
-    RT["Routes<br/>app.ts"] ~~~ SV["EvaluationService<br/>service.ts<br/>runs in background"] ~~~ DL["Report downloads<br/>xlsx, md, json"]
+    RT["Routes<br/>app.ts"] ~~~ SV["EvaluationService<br/>service.ts<br/>runs in background"] ~~~ SI["Scorecard import<br/>draft, check,<br/>person approves"] ~~~ DL["Report downloads<br/>xlsx, pdf, md, json"]
   end
 
   subgraph AGENT["EVALUATOR AGENT · server/src/agent/ · 3 raters + 1 consolidator · verdict decided by code"]
@@ -68,7 +68,7 @@ flowchart TB
 
     subgraph STAGES["The six stages"]
       direction LR
-      S1["1 Freeze<br/>hash workbook<br/>+ scorecard"] --> S2["2 Count<br/>exact checks<br/>in code"] --> S3["3 Rate x3<br/>blind, 3 model<br/>families"] --> S4["4 Consolidate<br/>a 4th model<br/>reconciles"] --> S5["5 Decide<br/>verdict<br/>by rule"] --> S6["6 Explain<br/>findings, path<br/>to green"]
+      S1["1 Freeze<br/>hash workbook<br/>+ scorecard"] --> S2["2 Count<br/>exact checks<br/>in code"] --> S3["3 Rate x3<br/>blind, 3 families,<br/>median of repeats"] --> S4["4 Consolidate<br/>a 4th model<br/>reconciles"] --> S5["5 Decide<br/>verdict<br/>by rule"] --> S6["6 Explain<br/>findings, path<br/>to green"]
     end
 
     subgraph GUARD["GUARDRAILS · enforced in code, not in prompts"]
@@ -81,17 +81,17 @@ flowchart TB
 
   subgraph ADAPT["ADAPTERS · swap one without touching the agent"]
     direction LR
-    A1["Workbook<br/>reader<br/>excel/"] ~~~ A2["Report<br/>renderer<br/>report/"] ~~~ A3["Store<br/>db/<br/>Postgres, SQL"] ~~~ A4["Provider<br/>adapters<br/>llm/"]
+    A1["Workbook + PDF<br/>reader<br/>excel/"] ~~~ A2["Report<br/>renderer<br/>report/"] ~~~ A3["Store<br/>db/<br/>Postgres, SQL"] ~~~ A4["Provider<br/>adapters<br/>llm/"]
   end
 
   subgraph DATA["YOUR DATA · stays on your machine"]
     direction LR
-    UP[["Upload folder<br/>data/uploads<br/>copies, never edited"]] ~~~ PG[("Postgres 16<br/>docker compose<br/>up -d db")]
+    UP[["Upload folder<br/>data/uploads<br/>copies, never edited"]] ~~~ RP[["Saved reports<br/>data/reports<br/>json, md, xlsx, pdf"]] ~~~ PG[("Postgres 16<br/>docker compose<br/>up --build")]
   end
 
   subgraph MODELS["MODEL PROVIDERS · approved models only"]
     direction LR
-    GQ["Groq"] ~~~ GM["Gemini"] ~~~ OA["Any OpenAI-<br/>style API"]
+    GQ["Groq"] ~~~ GM["Gemini"] ~~~ BR["Amazon<br/>Bedrock"] ~~~ OA["Any OpenAI-<br/>style API"]
   end
 
   PEOPLE -->|browser| WEB
@@ -108,11 +108,11 @@ flowchart TB
   classDef store fill:#1e3a8a,stroke:#7aa2f7,color:#ffffff
   classDef ext fill:#92400e,stroke:#f5b13d,color:#ffffff
   class AU,PR,ME person
-  class P1,P2,P3,P4,P5,RT,SV,DL,A1,A2,A3,A4 ui
+  class P1,P2,P6,P3,P4,P5,RT,SV,SI,DL,A1,A2,A3,A4 ui
   class ORCH,S1,S2,S3,S4,S5,S6 agent
   class G1,G2,G3,G4 guard
-  class UP,PG store
-  class GQ,GM,OA ext
+  class UP,RP,PG store
+  class GQ,GM,BR,OA ext
   style AGENT fill:transparent,stroke:#14b8a6,stroke-width:3px
   style STAGES fill:transparent,stroke:#14b8a6
   style GUARD fill:transparent,stroke:#14b8a6,stroke-dasharray:4 4

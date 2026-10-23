@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import type { RunDetail } from '@ddd/shared';
 import { Card } from '../../components/Layout';
+import { simplifyRun } from '../../plainNames';
 import { Tabs, useHashTab, type TabSpec } from '../../components/Tabs';
 import { AgreementTable } from './AgreementTable';
 import { FindingsList } from './FindingsList';
@@ -13,7 +15,9 @@ import { VerdictHero } from './VerdictHero';
 
 const TAB_IDS = ['scores', 'fix', 'agreement', 'input', 'path', 'strengths', 'tech'];
 
-export function ReportView({ run, onChange }: { run: RunDetail; onChange: (run: RunDetail) => void }) {
+export function ReportView({ run: saved, onChange }: { run: RunDetail; onChange: (run: RunDetail) => void }) {
+  // The page shows plain names; the saved report and the downloads keep the codes.
+  const run = useMemo(() => simplifyRun(saved), [saved]);
   const report = run.report!;
   const pending = report.notMeasurable.filter((n) => !n.evidence).length;
   const flagged = report.agreement.filter((a) => a.flagged).length;
@@ -43,7 +47,7 @@ export function ReportView({ run, onChange }: { run: RunDetail; onChange: (run: 
         )}
         {tab === 'fix' && (
           <Card title="What to fix" aside={<span className="faint">Most serious first</span>}>
-            <FindingsList findings={report.findings} />
+            <FindingsList findings={report.findings} names={Object.fromEntries(report.dimensions.map((d) => [d.id, d.name]))} />
           </Card>
         )}
         {tab === 'agreement' && (
@@ -63,7 +67,7 @@ export function ReportView({ run, onChange }: { run: RunDetail; onChange: (run: 
         )}
         {tab === 'strengths' && (
           <Card title="What is already good" aside={<span className="faint">Keep these in the next version</span>}>
-            <StrengthsList strengths={report.strengths} />
+            <StrengthsList strengths={report.strengths} names={Object.fromEntries(report.dimensions.map((d) => [d.id, d.name]))} />
           </Card>
         )}
         {tab === 'tech' && (

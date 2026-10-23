@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { z } from 'zod';
@@ -22,9 +22,11 @@ const modelEntrySchema = z.object({
 });
 
 const providerSchema = z.object({
-  type: z.enum(['openai-compatible', 'gemini', 'mock']),
+  type: z.enum(['openai-compatible', 'gemini', 'bedrock', 'mock']),
   baseUrl: z.string().url().optional(),
   keyEnv: z.string().optional(),
+  /** Bedrock only: the AWS region the models are enabled in. The AWS_REGION variable overrides it. */
+  region: z.string().optional(),
 });
 
 export const modelsConfigSchema = z.object({
@@ -39,8 +41,12 @@ export const modelsConfigSchema = z.object({
       maxOutputTokens: z.number().int().positive().default(8192),
       timeoutMs: z.number().int().positive().default(120_000),
       retries: z.number().int().min(0).max(6).default(3),
+      /** Sections scored at the same time. Keep 1 on free tiers (rate limits); a roster with room can use more. */
+      sectionConcurrency: z.number().int().min(1).max(8).default(1),
+      /** Times each rater scores each section; the median is kept. 1 on free tiers; 3 steadies scores when quota allows. */
+      repeats: z.number().int().min(1).max(5).default(1),
     })
-    .default({ temperature: 0, maxOutputTokens: 8192, timeoutMs: 120_000, retries: 3 }),
+    .default({ temperature: 0, maxOutputTokens: 8192, timeoutMs: 120_000, retries: 3, sectionConcurrency: 1, repeats: 1 }),
 });
 
 export type ModelsConfig = z.infer<typeof modelsConfigSchema>;
@@ -60,6 +66,17 @@ export interface AppConfig {
 
 const serverDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
+/**
+ * MODELS_CONFIG may be absolute or relative. A relative path is looked for where the command was typed, where the process
+ * runs (npm runs workspace scripts from server/) and at the repository root, so "server/config/models.bedrock.json" works from anywhere.
+ */
+export function resolveModelsFile(configured: string, env: NodeJS.ProcessEnv = process.env): string {
+  if (path.isAbsolute(configured)) return configured;
+  const bases = [env.INIT_CWD, process.cwd(), path.dirname(serverDir)].filter((b): b is string => Boolean(b));
+  const found = bases.map((base) => path.resolve(base, configured)).find((candidate) => existsSync(candidate));
+  return found ?? path.resolve(bases[0] ?? '.', configured);
+}
+
 export function loadModelsConfig(file: string): ModelsConfig {
   const parsed = modelsConfigSchema.safeParse(JSON.parse(readFileSync(file, 'utf8')));
   if (!parsed.success) {
@@ -71,8 +88,12 @@ export function loadModelsConfig(file: string): ModelsConfig {
 
 export function loadAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const mock = env.MOCK_LLM === '1';
-  const modelsFile =
-    env.MODELS_CONFIG ?? path.join(serverDir, 'config', mock ? 'models.mock.json' : 'models.json');
+  // Mock mode is "no live APIs, whatever else is set": it always uses the scripted roster.
+  const modelsFile = mock
+    ? path.join(serverDir, 'config', 'models.mock.json')
+    : env.MODELS_CONFIG
+      ? resolveModelsFile(env.MODELS_CONFIG, env)
+      : path.join(serverDir, 'config', 'models.json');
   const databaseUrl = env.DATABASE_URL || undefined;
   const dbMode = env.DB_MODE === 'memory' || !databaseUrl ? 'memory' : 'postgres';
   return {

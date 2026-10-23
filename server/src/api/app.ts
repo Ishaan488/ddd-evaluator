@@ -9,6 +9,7 @@ import type { Store } from '../db/store.js';
 import { inspectRoster } from '../llm/roster.js';
 import { PROMPT_VERSION } from '../agent/index.js';
 import { renderMarkdown } from '../report/markdown.js';
+import { renderPdf } from '../report/pdf.js';
 import { renderXlsx } from '../report/xlsx.js';
 import { buildScorecardTemplate } from '../scorecard/template.js';
 import { UserError } from '../util/errors.js';
@@ -42,7 +43,7 @@ export function createApp(deps: AppDeps): express.Express {
   const { store, service, config } = deps;
   const app = express();
   app.disable('x-powered-by');
-  app.use(express.json({ limit: '1mb' }));
+  app.use(express.json({ limit: '2mb' }));
 
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_UPLOAD_BYTES, files: 2 } });
 
@@ -79,9 +80,9 @@ export function createApp(deps: AppDeps): express.Express {
       const files = req.files as Record<string, Express.Multer.File[]> | undefined;
       const workbook = files?.workbook?.[0];
       const scorecard = files?.scorecard?.[0];
-      if (!workbook) throw new UserError('Attach the workbook to evaluate (.xlsx).');
+      if (!workbook) throw new UserError('Attach the file to evaluate (.xlsx or .pdf).');
       if (!scorecard) throw new UserError('Attach the frozen scorecard (.xlsx, .yaml or .json).');
-      if (!/\.xlsx$/i.test(workbook.originalname)) throw new UserError('The workbook must be an .xlsx file.');
+      if (!/\.(xlsx|pdf)$/i.test(workbook.originalname)) throw new UserError('The file to check must be an .xlsx or .pdf file.');
 
       const body = req.body as Record<string, string | undefined>;
       const created = await service.submit({
@@ -95,6 +96,29 @@ export function createApp(deps: AppDeps): express.Express {
     },
   );
 
+  app.post(
+    '/api/scorecards/import',
+    upload.fields([{ name: 'scorecard', maxCount: 1 }, { name: 'document', maxCount: 1 }]),
+    async (req, res) => {
+      const files = req.files as Record<string, Express.Multer.File[]> | undefined;
+      const scorecard = files?.scorecard?.[0];
+      const document = files?.document?.[0];
+      if (!scorecard) throw new UserError('Attach the scorecard to import.');
+      if (document && !/\.(xlsx|pdf)$/i.test(document.originalname)) throw new UserError('The document the scorecard will judge must be an .xlsx or .pdf file.');
+      const result = await service.importScorecard({
+        source: { name: scorecard.originalname, bytes: scorecard.buffer },
+        ...(document ? { document: { name: document.originalname, bytes: document.buffer } } : {}),
+      });
+      const { draft: _draft, ...body } = result;
+      res.json(body);
+    },
+  );
+
+  app.post('/api/scorecards/check', (req, res) => {
+    const body = z.object({ yaml: z.string().min(1).max(500_000), approvedBy: z.string().trim().max(120).optional() }).parse(req.body);
+    res.json(service.approveScorecard(body.yaml, body.approvedBy));
+  });
+
   app.get('/api/scorecard-template.xlsx', async (_req, res) => {
     res.type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.attachment('scorecard-template.xlsx').send(await buildScorecardTemplate());
@@ -107,11 +131,13 @@ export function createApp(deps: AppDeps): express.Express {
   app.post('/api/runs/:id/evidence', async (req, res) => {
     const body = evidenceBody.parse(req.body);
     await store.addEvidence(req.params.id, { ...body, score: body.score ?? null });
+    await service.snapshot(req.params.id);
     res.json(await store.getRunDetail(req.params.id));
   });
 
   app.post('/api/runs/:id/override', async (req, res) => {
     await store.addOverride(req.params.id, overrideBody.parse(req.body));
+    await service.snapshot(req.params.id);
     res.json(await store.getRunDetail(req.params.id));
   });
 
@@ -124,6 +150,9 @@ export function createApp(deps: AppDeps): express.Express {
         res.type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.attachment(`${base}.xlsx`).send(await renderXlsx(detail.report));
         return;
+      case 'pdf':
+        res.type('application/pdf').attachment(`${base}.pdf`).send(await renderPdf(detail.report));
+        return;
       case 'md':
         res.type('text/markdown').attachment(`${base}.md`).send(renderMarkdown(detail.report));
         return;
@@ -131,7 +160,7 @@ export function createApp(deps: AppDeps): express.Express {
         res.type('application/json').attachment(`${base}.json`).send(JSON.stringify(detail.report, null, 2));
         return;
       default:
-        throw new UserError('Reports come as xlsx, md or json.', 404);
+        throw new UserError('Reports come as xlsx, pdf, md or json.', 404);
     }
   });
 

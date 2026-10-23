@@ -6,9 +6,12 @@ import type { AppConfig } from '../config.js';
 import type { Store } from '../db/store.js';
 import { evaluate, preflight, type ProgressEvent } from '../agent/index.js';
 import { serializeSheets } from '../excel/serialize.js';
+import { resolvePageRanges } from '../excel/pageRanges.js';
 import { WorkbookModel } from '../excel/workbook.js';
 import { assertRosterReady, inspectRoster, usableFallbacks } from '../llm/roster.js';
 import type { ProviderFactory } from '../llm/registry.js';
+import { saveRunSnapshot } from './snapshot.js';
+import { approveDraft, importCandidates, importWithFallbacks, type ImportInput, type ImportResult } from '../scorecard/importer.js';
 import { parseScorecardFile } from '../scorecard/parse.js';
 import { sha256 } from '../util/hash.js';
 import { UserError, errorMessage } from '../util/errors.js';
@@ -43,19 +46,34 @@ export class EvaluationService {
 
   constructor(private readonly deps: ServiceDeps) {}
 
+  /**
+   * Drafts a scorecard in this app's format from a scorecard in any layout. The model that reads it is the first rater
+   * without a prompt-size limit (the most room), else the consolidator. The draft is never frozen.
+   */
+  async importScorecard(input: ImportInput): Promise<ImportResult> {
+    const candidates = importCandidates(this.deps.config.models, this.deps.providers);
+    if (candidates.length === 0) throw new UserError('No model is ready to read the scorecard. Check the keys with "npm run models:check".', 409);
+    return importWithFallbacks(input, candidates);
+  }
+
+  approveScorecard(yamlText: string, approvedBy?: string) {
+    return approveDraft(yamlText, approvedBy);
+  }
+
   async submit(input: SubmitInput): Promise<{ runId: string; projectId: string; iteration: number }> {
-    const { scorecard, hash } = await parseScorecardFile(input.scorecard.buffer, input.scorecard.name);
+    const { scorecard: parsed, hash } = await parseScorecardFile(input.scorecard.buffer, input.scorecard.name);
     const instructions = (input.instructions ?? '').trim();
     if (instructions.length > MAX_INSTRUCTIONS) {
       throw new UserError(`The extra instructions are ${instructions.length} characters; the limit is ${MAX_INSTRUCTIONS}. Shorten them.`);
     }
-    if (!scorecard.frozen) {
+    if (!parsed.frozen) {
       throw new UserError('This scorecard is not frozen. Set `frozen: true` once it is approved, so the target cannot move mid-evaluation.');
     }
     const roster = inspectRoster(this.deps.config.models, this.deps.env);
     assertRosterReady(roster);
 
     const wb = await WorkbookModel.load(input.workbook.buffer);
+    const scorecard = resolvePageRanges(parsed, wb);
     for (const sheet of [...scorecard.artifact.sheets, ...scorecard.artifact.context]) {
       if (!wb.resolveSheet(sheet.name)) {
         throw new UserError(`The scorecard names a sheet "${sheet.name}" that this workbook does not have. Sheets found: ${wb.sheetNames().join(', ')}`);
@@ -91,17 +109,27 @@ export class EvaluationService {
 
     const created = await this.deps.store.createRun(
       {
-        projectName, step: scorecard.step, gate: scorecard.gate, scorecard, scorecardHash: hash, sources: input.sources, instructions,
+        projectName, step: parsed.step, gate: parsed.gate, scorecard: parsed, scorecardHash: hash, sources: input.sources, instructions,
         artifactName: name, artifactHash: sha256(input.workbook.buffer), artifactPath: workbookPath, progress,
       },
       runId,
     );
 
-    const job = this.execute(created.runId, projectName, created.iteration, workbookPath, name, input.sources, instructions, scorecard, hash, progress)
+    const job = this.execute(created.runId, projectName, created.iteration, workbookPath, name, input.sources, instructions, parsed, hash, progress)
       .catch((error) => this.deps.log?.(`run ${runId} crashed: ${errorMessage(error)}`))
       .finally(() => this.running.delete(job));
     this.running.add(job);
     return created;
+  }
+
+  /** Saves a copy of the run's report as files. A failure here is logged and never loses the result held in the database. */
+  async snapshot(runId: string): Promise<void> {
+    try {
+      const folder = await saveRunSnapshot(this.deps.config.dataDir, await this.deps.store.getRunDetail(runId));
+      if (folder) this.deps.log?.(`report saved to ${folder}`);
+    } catch (error) {
+      this.deps.log?.(`could not save report files: ${errorMessage(error)}`);
+    }
   }
 
   /** Resolves when every started evaluation has finished (used by tests and graceful shutdown). */
@@ -150,6 +178,7 @@ export class EvaluationService {
       });
       await chain;
       await store.completeRun(runId, output, progress);
+      await this.snapshot(runId);
     } catch (error) {
       await chain;
       await store.failRun(runId, errorMessage(error));

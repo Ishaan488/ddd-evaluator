@@ -51,6 +51,33 @@ export interface SubmitForm {
   instructions: string;
 }
 
+export interface ImportedQuestion {
+  id: string;
+  name: string;
+  weight: number;
+  critical: boolean;
+  by: 'examiners' | 'person' | 'code';
+  reads: string[];
+  how?: string;
+}
+
+export interface ImportedScorecard {
+  questions: ImportedQuestion[];
+  yaml: string;
+  uncertain: string[];
+  adjustments: string[];
+  summary: { dimensions: number; byExaminers: number; byCode: number; byPerson: number; critical: number; weightTotal: number };
+  sourceText: string;
+  documentOutline: string | null;
+  model: { id: string; provider: string; model: string };
+}
+
+export interface CheckedScorecard {
+  yaml: string;
+  frozen: boolean;
+  summary: ImportedScorecard['summary'];
+}
+
 export const api = {
   config: () => request<ConfigResponse>('/api/config'),
   projects: () => request<ProjectSummary[]>('/api/projects'),
@@ -73,7 +100,16 @@ export const api = {
   override: (runId: string, input: { decision: Decision; reason: string; by: string }) =>
     request<RunDetail>(`/api/runs/${runId}/override`, json(input)),
 
+  importScorecard(scorecard: File, document: File | null) {
+    const body = new FormData();
+    body.append('scorecard', scorecard);
+    if (document) body.append('document', document);
+    return request<ImportedScorecard>('/api/scorecards/import', { method: 'POST', body });
+  },
+
+  checkScorecard: (yaml: string, approvedBy?: string) => request<CheckedScorecard>('/api/scorecards/check', json({ yaml, approvedBy })),
+
   scorecardTemplateUrl: '/api/scorecard-template.xlsx',
 
-  reportUrl: (runId: string, ext: 'xlsx' | 'md' | 'json') => `/api/runs/${runId}/report.${ext}`,
+  reportUrl: (runId: string, ext: 'xlsx' | 'pdf' | 'md' | 'json') => `/api/runs/${runId}/report.${ext}`,
 };

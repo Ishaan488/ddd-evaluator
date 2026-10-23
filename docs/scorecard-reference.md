@@ -182,6 +182,8 @@ small model (the Talentra D2 prompt is about 20,500 tokens). A rater dimension c
   Dimensions with no `reads` are asked together against the whole workbook, exactly as before, so old scorecards behave the same.
 - The consolidator is sent only the sheets behind the dimensions the raters disagreed on by more than a point, instead of the whole workbook.
 - In Excel, put the entries in the `Reads` column of the `Dimensions` sheet, separated by `;`.
+- **For a PDF**, each page is a sheet named `Page 1`, `Page 2`, ... and a range works: `reads: ["Page 7-9"]`. Keep it to a few pages (about 3 on free-tier models, about 10 when no model has a tight limit), because a long PDF cannot go to a model in one piece.
+- **A must-pass red line.** Set `red_at_or_below: 2` (a row on the Excel `Scorecard` sheet) and a must-pass question scoring at or below it forces RED. It applies only to a score the examiners agreed on; a score from one examiner, or an unresolved disagreement, keeps the result amber and asks a person to check.
 - **What it buys, and what it costs.** Each prompt gets much smaller, so a small model can take it. The total sent to each rater goes *up*,
   because the instructions and any shared columns repeat in every section. Use it when the problem is a model's per-request limit.
   Run `npm run prompt:size -- <workbook> <scorecard>` to see the numbers for your own files before spending any quota.
@@ -233,6 +235,9 @@ where: { column: Used by id, not_blank: true }
 | `values_in_list` | every value is a member of a named allowed list (blanks ignored) | `sheet`, `column`, `lists_sheet`, `lists_name_column`, `lists_value_column`, `list`, `where?` |
 | `value_not_in` | the value is not one of `forbidden` (case-insensitive); blank also fails unless `blank_fails: false` | `sheet`, `column`, `forbidden[]`, `blank_fails?`, `where?` |
 | `row_count_at_least` | the sheet has at least `min` rows (partial credit by ratio) | `sheet`, `min`, `where?` |
+| `text_terms_absent` | share of text lines (cells) that contain none of the `terms`, whole words, any case; works on a PDF | `terms`, `sheets?` (default all) |
+| `text_terms_present` | share of the `terms` that appear anywhere in the text | `terms`, `sheets?` |
+| `text_ids_valid` | share of things matching `find` (a regular expression) that also fit `valid` (the strict regular expression) | `find`, `valid`, `sheets?` |
 
 Rows that are completely empty are not counted as records. If a check cannot run (a column is missing, a list has
 no values), the dimension becomes **unscored** (counts as 0) and a HIGH finding says why. It never crashes the run.

@@ -45,7 +45,8 @@ export function RunPage() {
                 label="Download report"
                 icon="download"
                 items={[
-                  { label: 'Excel', hint: 'The full eight-section report', href: api.reportUrl(r.id, 'xlsx'), icon: 'sheet' },
+                  { label: 'PDF', hint: 'Printable, starts with what to improve', href: api.reportUrl(r.id, 'pdf'), icon: 'download' },
+                  { label: 'Excel', hint: 'To-do sheet plus the eight sections', href: api.reportUrl(r.id, 'xlsx'), icon: 'sheet' },
                   { label: 'Markdown', hint: 'Easy to read and paste', href: api.reportUrl(r.id, 'md'), icon: 'copy' },
                   { label: 'JSON', hint: 'For other programs', href: api.reportUrl(r.id, 'json'), icon: 'info' },
                 ]}

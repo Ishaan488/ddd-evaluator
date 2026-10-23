@@ -1,6 +1,8 @@
 import ExcelJS from 'exceljs';
 import type { Decision, Report } from '@ddd/shared';
+import { improvementPlan } from './improvements.js';
 
+const SEV_FILL: Record<string, string> = { HIGH: 'FFF8D7D5', MEDIUM: 'FFFBEBCB', LOW: 'FFD9E8F7', SCORE: 'FFEDEDEF', PERSON: 'FFE6DFF5' };
 const FILL: Record<Decision, string> = { green: 'FF1F8A4C', amber: 'FFB7791F', red: 'FFB4322F' };
 
 function sheet(workbook: ExcelJS.Workbook, name: string, columns: Array<{ header: string; width: number }>) {
@@ -21,6 +23,17 @@ export async function renderXlsx(report: Report): Promise<Buffer> {
   workbook.creator = 'DDD Evaluator';
   const { header, verdict } = report;
   const raterIds = header.raters.map((r) => r.id);
+
+  const plan = sheet(workbook, 'What to improve', [
+    { header: 'Priority', width: 9 }, { header: 'Type', width: 12 }, { header: 'Dimension', width: 38 }, { header: 'Where', width: 22 },
+    { header: 'Problem', width: 55 }, { header: 'What to do', width: 65 }, { header: 'Go back to', width: 12 }, { header: 'Score gain', width: 11 }, { header: 'Done', width: 8 },
+  ]);
+  for (const row of improvementPlan(report)) {
+    const added = plan.addRow([row.priority, row.severity === 'SCORE' ? 'LOW SCORE' : row.severity === 'PERSON' ? 'NEEDS A PERSON' : row.severity, row.dimension, row.where, row.problem, row.action, row.returnTo, row.gain ?? '', '']);
+    added.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: SEV_FILL[row.severity] ?? 'FFFFFFFF' } };
+    added.getCell(2).font = { bold: true };
+  }
+  plan.autoFilter = { from: 'A1', to: 'I1' };
 
   const h = sheet(workbook, '1 Header', [{ header: 'Item', width: 26 }, { header: 'Value', width: 90 }]);
   h.addRows([
@@ -58,7 +71,12 @@ export async function renderXlsx(report: Report): Promise<Buffer> {
     { header: 'Score', width: 8 }, { header: 'Spread', width: 8 }, { header: 'Status', width: 15 }, { header: 'Rationale', width: 80 },
   ]);
   for (const dim of report.dimensions) {
-    d.addRow([dim.id, dim.name, dim.weight, dim.critical ? 'yes' : '', dim.measuredBy, ...raterIds.map((id) => dim.raterScores[id] ?? ''), dim.consolidated ?? '', dim.spread ?? '', dim.status, dim.rationale]);
+    const added = d.addRow([dim.id, dim.name, dim.weight, dim.critical ? 'yes' : '', dim.measuredBy, ...raterIds.map((id) => dim.raterScores[id] ?? ''), dim.consolidated ?? '', dim.spread ?? '', dim.status, dim.rationale]);
+    if (dim.consolidated !== null) {
+      const cellRef = added.getCell(6 + raterIds.length);
+      cellRef.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: dim.consolidated >= 4 ? 'FFD6EFDF' : dim.consolidated >= 3 ? 'FFFBEBCB' : 'FFF8D7D5' } };
+      cellRef.font = { bold: true };
+    }
   }
 
   const s = sheet(workbook, '4 Strengths', [{ header: 'Dimension', width: 12 }, { header: 'Strength', width: 90 }, { header: 'Where', width: 28 }]);

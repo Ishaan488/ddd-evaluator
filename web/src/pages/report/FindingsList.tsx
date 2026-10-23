@@ -4,7 +4,7 @@ import { CellChip, SeverityChip } from '../../components/Chip';
 import { EmptyState } from '../../components/Layout';
 import { SEVERITY, plural } from '../../copy';
 
-export function FindingsList({ findings }: { findings: Finding[] }) {
+export function FindingsList({ findings, names = {} }: { findings: Finding[]; names?: Record<string, string> }) {
   const [severity, setSeverity] = useState<Severity | 'ALL'>('ALL');
   const [dimension, setDimension] = useState('ALL');
 
@@ -38,7 +38,7 @@ export function FindingsList({ findings }: { findings: Finding[] }) {
           <select className="input input-sm" value={dimension} onChange={(e) => setDimension(e.target.value)} aria-label="Filter by criterion">
             <option value="ALL">All criteria</option>
             {dimensions.map((d) => (
-              <option key={d} value={d}>{d}</option>
+              <option key={d} value={d}>{names[d] ?? d}</option>
             ))}
           </select>
         )}
@@ -48,7 +48,6 @@ export function FindingsList({ findings }: { findings: Finding[] }) {
         {shown.map((f) => (
           <li key={f.id} className={`finding finding-${f.severity.toLowerCase()}`}>
             <div className="finding-head">
-              <span className="mono faint">{f.id}</span>
               <SeverityChip severity={f.severity} />
               {f.severity === 'HIGH' && <span className="blocks">Stops it being green</span>}
               <h3>{f.title}</h3>
@@ -60,7 +59,7 @@ export function FindingsList({ findings }: { findings: Finding[] }) {
               <span>{f.fix || 'No fix was suggested.'}</span>
             </div>
             <div className="finding-foot">
-              <span>Criterion <span className="mono">{f.dimensionId}</span></span>
+              <span>About <strong>{names[f.dimensionId] ?? f.dimensionId}</strong></span>
               <span>Send back to <strong>{f.returnTo}</strong></span>
               <span>{f.source === 'code' ? 'Found by the computer' : `Raised by ${plural(f.reportedBy.length, 'examiner')} (${f.reportedBy.join(', ')})`}</span>
             </div>

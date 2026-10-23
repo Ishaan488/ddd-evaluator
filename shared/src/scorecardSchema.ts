@@ -90,6 +90,7 @@ export const scorecardFileSchema = z
       thresholds: z
         .object({ accept: z.number().min(0).max(100), refine: z.number().min(0).max(100) })
         .default({ accept: 90, refine: 75 }),
+      red_at_or_below: z.number().int().min(0).max(4).optional(),
       artifact: z.object({
         sheets: z.array(sheetSchema).min(1),
         context_sheets: z.array(sheetSchema).default([]),
@@ -128,6 +129,7 @@ export function toScorecard(file: ScorecardFile): Scorecard {
     frozen: sc.frozen,
     approval: sc.approval,
     thresholds: sc.thresholds,
+    ...(sc.red_at_or_below !== undefined ? { redAtOrBelow: sc.red_at_or_below } : {}),
     artifact: { sheets: sc.artifact.sheets.map(sheet), context: sc.artifact.context_sheets.map(sheet) },
     dimensions: sc.dimensions.map((d) => ({
       id: d.id,

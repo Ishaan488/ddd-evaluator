@@ -113,7 +113,9 @@ raters from one family share blind spots.
 
 ## Database
 
-- **Start**: `docker compose up -d db` (Postgres 16, user / password / database all `ddd`, port 5432, data in the
+- **Results are always saved twice.** The database keeps the history shown in the dashboard (Postgres survives restarts; the in-memory demo database does not). Whatever the mode, every finished report is also written to `data/reports/<project>/iteration-<n>/` as `report.json`, `report.md`, `report.xlsx` and `report.pdf`, and rewritten when a person adds evidence or an override.
+- **Whole app in Docker**: `docker compose up --build` starts Postgres and the evaluator together (open http://localhost:4000); `MOCK_LLM=1 docker compose up` runs it on scripted models. The app container reads keys and `MODELS_CONFIG` from `.env`, talks to the database container, and keeps uploads in `./data`.
+- **Start only the database**: `docker compose up -d db` (Postgres 16, user / password / database all `ddd`, port 5432, data in the
   `ddd_pgdata` volume, so it survives restarts and `docker compose down`).
 - **Migrate**: automatic on server start, or `npm run db:migrate` (safe to repeat; applied files are recorded in `schema_migrations`).
 - **Look inside**: connect any client (psql, DBeaver, TablePlus, pgAdmin) to `localhost:5432`. Useful tables:

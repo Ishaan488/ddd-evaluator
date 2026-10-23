@@ -83,7 +83,6 @@ function Row({ d, raters, columns, expanded, onToggle }: { d: DimensionResult; r
         <td>
           <div className="dim">
             <span className={`chev ${detail ? '' : 'chev-off'} ${expanded ? 'chev-open' : ''}`}>{detail && <Icon name="chevron" size={14} />}</span>
-            <span className="faint dim-id">{d.id}</span>
             <span className="dim-main">
               <span className="dim-name">{d.name}</span>
               {d.critical && <span className="crit" title="Must-pass check: needs 4 or more">★</span>}

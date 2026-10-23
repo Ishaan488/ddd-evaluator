@@ -12,7 +12,7 @@ export function PathToGreen({ path }: { path: Path }) {
               <span className="path-n">{s.order}</span>
               <div className="path-body">
                 <div className="path-title">
-                  <span className="mono faint">{s.dimensionId}</span> {s.name}
+                  {s.name}
                   {s.reason === 'critical gate' && <span className="crit" title="Unblocks a must-pass check">★</span>}
                 </div>
                 <div className="path-sub">

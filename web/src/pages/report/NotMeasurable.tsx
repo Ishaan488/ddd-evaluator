@@ -69,7 +69,6 @@ export function NotMeasurable({ run, onChange }: { run: RunDetail; onChange: (ru
         {items.map((item) => (
           <li key={item.dimensionId} className={`human-item ${item.evidence ? 'human-done' : ''}`}>
             <div className="human-head">
-              <span className="mono faint">{item.dimensionId}</span>
               <h3>{item.name}</h3>
               {item.critical && <span className="crit" title="Must-pass check">★</span>}
               {item.evidence ? <Chip tone="green"><Icon name="check" size={11} strokeWidth={2.6} /> Supplied</Chip> : <Chip tone="amber">Still needed</Chip>}

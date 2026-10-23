@@ -23,6 +23,9 @@ import { buildRaterResultsJson, disputedDimensions, consolidate } from './consol
 import { defaultReturnTo, finalizeFindings, findingsFromChecks } from './findings.js';
 import { runRater } from './rater.js';
 import type { CallMeta, DraftFinding, RaterOutcome } from './types.js';
+import { medianOutcome } from './repeats.js';
+import { mapWithConcurrency } from '../util/concurrency.js';
+import { resolvePageRanges } from '../excel/pageRanges.js';
 import { planSections, sheetsForDisagreements } from './sectionPlanner.js';
 import { serializeSheets } from '../excel/serialize.js';
 
@@ -56,6 +59,8 @@ export interface EvaluationOutput {
 }
 
 const APP_VERSION = '1.0.0';
+/** Repeated scoring needs some randomness, or every repeat would be the same answer. */
+const REPEAT_TEMPERATURE = 0.4;
 
 /**
  * One evaluation, start to finish. It follows the Level 1 flow on PDF page 9:
@@ -81,7 +86,8 @@ function mergeSectionOutcomes(done: RaterOutcome[]): RaterOutcome {
     outputTokens: known((o) => o.outputTokens),
     error: done.find((o) => o.error)?.error,
     dimensions: done.flatMap((o) => o.dimensions),
-    findings: done.flatMap((o) => o.findings),
+    // Each section numbers its findings from 1, so renumber: the consolidator tells findings apart by this reference.
+    findings: done.flatMap((o) => o.findings).map((f, i) => ({ ...f, ref: `${last.model.id}${i + 1}` })),
     strengths: done.flatMap((o) => o.strengths),
     discarded: done.flatMap((o) => o.discarded),
   };
@@ -91,10 +97,9 @@ export async function evaluate(args: EvaluateArgs): Promise<EvaluationOutput> {
   const now = args.now ?? (() => new Date());
   const startedAt = now();
   const emit = args.onProgress ?? (() => undefined);
-  const { scorecard } = args;
   const instructions = (args.instructions ?? '').trim();
 
-  if (!scorecard.frozen) {
+  if (!args.scorecard.frozen) {
     throw new UserError(
       'The scorecard is not frozen. A scorecard must be frozen (frozen: true) before anything is scored against it, so the target cannot move.',
     );
@@ -107,6 +112,7 @@ export async function evaluate(args: EvaluateArgs): Promise<EvaluationOutput> {
   const bytes = await readFile(args.workbookPath);
   const artifactHash = sha256(bytes);
   const wb = await WorkbookModel.load(bytes);
+  const scorecard = resolvePageRanges(args.scorecard, wb);
   const artifactSheets = scorecard.artifact.sheets.map((s) => s.name);
   const contextSheets = scorecard.artifact.context.map((s) => s.name);
   for (const name of [...artifactSheets, ...contextSheets]) {
@@ -130,6 +136,7 @@ export async function evaluate(args: EvaluateArgs): Promise<EvaluationOutput> {
     model: roster.consolidator.model,
     family: roster.consolidator.family,
   };
+  const repeats = args.models.settings.repeats;
   const settings = { temperature: args.models.settings.temperature, maxOutputTokens: args.models.settings.maxOutputTokens };
   const returnTo = defaultReturnTo(scorecard.gate);
 
@@ -142,10 +149,10 @@ export async function evaluate(args: EvaluateArgs): Promise<EvaluationOutput> {
     emit({ type: 'stage', stage: 'rating' });
 
     // One prompt per section (a scorecard without `reads` is a single section holding the whole workbook).
-    // The raters work in parallel inside a section; sections run one after another to stay inside rate limits.
+    // The raters work in parallel inside a section; sections run one at a time unless the roster allows more (settings.sectionConcurrency).
     const sections = planSections(scorecard);
     const perRater = roster.raters.map((member) => ({ member, outcomes: [] as RaterOutcome[] }));
-    for (const section of sections) {
+    await mapWithConcurrency(sections, args.models.settings.sectionConcurrency, async (section) => {
       const sectionPrompt = buildRaterPromptForSection({ scorecard, section, wb, sources: args.sources, instructions });
       const where = sections.length > 1 ? ` (${section.label})` : '';
 
@@ -153,26 +160,34 @@ export async function evaluate(args: EvaluateArgs): Promise<EvaluationOutput> {
         perRater.map(async ({ member, outcomes: done }) => {
           const candidates = candidatesFor(member);
           emit({ type: 'participant', id: member.id, status: 'running', provider: member.provider, model: member.model });
-          const { result: outcome, failures } = await runWithFallback(
-            candidates,
-            (candidate) => {
-              if (candidate !== candidates[0]) {
-                emit({ type: 'participant', id: member.id, status: 'running', provider: candidate.ref.provider, model: candidate.ref.model });
-              }
-              return runRater({
-                model: candidate.ref,
-                provider: args.providers(candidate.ref.provider),
-                user: sectionPrompt.user,
-                expected: section.dimensions,
-                wb,
-                allowedSheets,
-                defaultReturnTo: returnTo,
-                settings,
-                maxInputTokens: candidate.maxInputTokens,
-              });
-            },
-            (o) => ({ ok: o.status === 'ok', error: o.error }),
+          // Each rater scores the section `repeats` times and the median is kept. Repeats need some randomness to be independent samples.
+          const runSettings = repeats > 1 ? { ...settings, temperature: Math.max(settings.temperature, REPEAT_TEMPERATURE) } : settings;
+          const attempts = await Promise.all(
+            Array.from({ length: repeats }, () =>
+              runWithFallback(
+                candidates,
+                (candidate) => {
+                  if (candidate !== candidates[0]) {
+                    emit({ type: 'participant', id: member.id, status: 'running', provider: candidate.ref.provider, model: candidate.ref.model });
+                  }
+                  return runRater({
+                    model: candidate.ref,
+                    provider: args.providers(candidate.ref.provider),
+                    user: sectionPrompt.user,
+                    expected: section.dimensions,
+                    wb,
+                    allowedSheets,
+                    defaultReturnTo: returnTo,
+                    settings: runSettings,
+                    maxInputTokens: candidate.maxInputTokens,
+                  });
+                },
+                (o) => ({ ok: o.status === 'ok', error: o.error }),
+              ),
+            ),
           );
+          const outcome = medianOutcome(attempts.map((a) => a.result));
+          const failures = attempts.flatMap((a) => a.failures);
           if (failures.length > 0) {
             if (outcome.status === 'ok') {
               fallbackNotes.push(`Rater ${member.id}${where}: ${describeFailures(failures)}. ${outcome.model.model} answered instead (same model family).`);
@@ -184,7 +199,7 @@ export async function evaluate(args: EvaluateArgs): Promise<EvaluationOutput> {
           emit({ type: 'participant', id: member.id, status: outcome.status, error: outcome.error, latencyMs: outcome.latencyMs, provider: outcome.model.provider, model: outcome.model.model });
         }),
       );
-    }
+    });
     outcomes = perRater.map(({ outcomes: done }) => mergeSectionOutcomes(done));
 
     if (outcomes.every((o) => o.status === 'failed')) {
@@ -328,7 +343,7 @@ export async function evaluate(args: EvaluateArgs): Promise<EvaluationOutput> {
       startedAt: startedAt.toISOString(),
       finishedAt: finishedAt.toISOString(),
     },
-    scorecard,
+    scorecard: args.scorecard,
     dimensions,
     findings,
     strengths: consolidation?.strengths ?? [],

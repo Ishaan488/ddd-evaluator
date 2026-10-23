@@ -28,11 +28,13 @@ export function Chip({ children, tone = 'muted' }: { children: ReactNode; tone?:
   return <span className={`chip chip-${tone} chip-sm`}>{children}</span>;
 }
 
+/** Where the evidence is. In a PDF a "cell" is a line on a page (A42 = line 42), so say that in words. */
 export function CellChip({ sheet, cell }: { sheet: string; cell: string }) {
+  const line = /^Page \d+$/.test(sheet) ? /^A(\d+)$/.exec(cell)?.[1] : undefined;
   return (
-    <span className="cell-chip mono" title={`${sheet}, cell ${cell}`}>
+    <span className="cell-chip mono" title={line ? `${sheet}, line ${line}` : `${sheet}, cell ${cell}`}>
       <span className="cell-chip-sheet">{sheet}</span>
-      <span className="cell-chip-cell">{cell}</span>
+      <span className="cell-chip-cell">{line ? `line ${line}` : cell}</span>
     </span>
   );
 }

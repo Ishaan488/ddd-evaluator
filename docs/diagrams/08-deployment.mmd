@@ -6,18 +6,19 @@ flowchart LR
   subgraph HOST["One machine (laptop or VM)"]
     direction TB
     PX["Reverse proxy with SSO / auth<br/><i>recommended in front for shared use,<br/>the app has no login of its own</i>"]
-    NODE["Node 22 process<br/><code>npm run start</code><br/>serves API and the built dashboard"]
-    subgraph DOCKER["docker compose up -d db"]
+    subgraph DOCKER["docker compose up --build"]
+      NODE["Node 22 app container<br/>serves API and the built dashboard<br/><i>or: npm run start on the host</i>"]
       PGC[("Postgres 16<br/>volume: ddd_pgdata")]
     end
-    ENV[".env<br/>DATABASE_URL · model API keys"]
-    UPL["data/uploads<br/>read-only copies"]
+    ENV[".env<br/>model API keys · MODELS_CONFIG"]
+    UPL["data/uploads · data/reports<br/>copies and saved report files"]
   end
 
   subgraph NET["Internet (HTTPS)"]
     direction TB
     P1["Groq API"]
     P2["Gemini API"]
+    P4["Amazon Bedrock"]
     P3["Other OpenAI-compatible API"]
   end
 
@@ -28,6 +29,7 @@ flowchart LR
   ENV -.-> NODE
   NODE --> P1
   NODE --> P2
+  NODE --> P4
   NODE --> P3
 
   classDef agent fill:#0f2a27,stroke:#2dd4bf,color:#ececf0
@@ -35,4 +37,4 @@ flowchart LR
   classDef ext fill:#1b1710,stroke:#f5b13d,color:#ececf0
   class NODE agent
   class PGC,UPL,ENV store
-  class P1,P2,P3 ext
+  class P1,P2,P3,P4 ext

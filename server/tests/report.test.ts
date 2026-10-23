@@ -3,6 +3,8 @@ import ExcelJS from 'exceljs';
 import { assembleReport } from '../src/report/assemble.js';
 import { renderMarkdown } from '../src/report/markdown.js';
 import { renderXlsx } from '../src/report/xlsx.js';
+import { renderPdf } from '../src/report/pdf.js';
+import { improvementPlan } from '../src/report/improvements.js';
 import { TALENTRA_XLSX, runEvaluation } from './helpers.js';
 
 describe('the eight-section report (PDF page 11)', () => {
@@ -13,7 +15,7 @@ describe('the eight-section report (PDF page 11)', () => {
     const book = new ExcelJS.Workbook();
     await book.xlsx.load((await renderXlsx(report)) as unknown as ExcelJS.Buffer);
     expect(book.worksheets.map((s) => s.name.replace(/^\d /, ''))).toEqual([
-      'Header', 'Verdict', 'Dimension scores', 'Strengths', 'Gaps and findings', 'Rater agreement', 'Not measurable', 'Path to green',
+      'What to improve', 'Header', 'Verdict', 'Dimension scores', 'Strengths', 'Gaps and findings', 'Rater agreement', 'Not measurable', 'Path to green',
     ]);
 
     const header = book.getWorksheet('1 Header')!;
@@ -32,6 +34,18 @@ describe('the eight-section report (PDF page 11)', () => {
     const positions = order.map((h) => markdown.indexOf(h));
     expect(positions.every((p) => p >= 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+  });
+
+  it('lists every finding and every outstanding person-only item in the improvement plan, and renders a PDF', async () => {
+    const run = await runEvaluation({ workbook: TALENTRA_XLSX });
+    const report = assembleReport(run.core, [], null);
+    const plan = improvementPlan(report);
+    expect(plan.filter((r) => ['HIGH', 'MEDIUM', 'LOW'].includes(r.severity))).toHaveLength(report.findings.length);
+    expect(plan.filter((r) => r.severity === 'PERSON')).toHaveLength(report.notMeasurable.filter((n) => !n.evidence).length);
+    expect(plan.map((r) => r.priority)).toEqual(plan.map((_, i) => i + 1));
+    const pdf = await renderPdf(report);
+    expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+    expect(pdf.length).toBeGreaterThan(3000);
   });
 
   it('shows the extra instructions in both formats when there are some, and not otherwise', async () => {

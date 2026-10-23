@@ -27,7 +27,7 @@ export function NextSteps({ run, onGo }: { run: RunDetail; onGo: (tab: string) =
   if (failedGates.length > 0) {
     steps.push({
       tone: 'red', icon: 'flag',
-      title: `Raise ${failedGates.map((g) => g.name).join(' and ')} to 4 or more`,
+      title: failedGates.length <= 2 ? `Raise ${failedGates.map((g) => g.name).join(' and ')} to 4 or more` : `Raise these ${failedGates.length} must-pass checks to 4 or more`,
       detail: 'A must-pass check can never fail, however high the total score is.', tab: 'path', cta: 'See how',
     });
   }
@@ -42,8 +42,8 @@ export function NextSteps({ run, onGo }: { run: RunDetail; onGo: (tab: string) =
   if (pending.length > 0) {
     steps.push({
       tone: 'amber', icon: 'user',
-      title: `Record ${pending.map((p) => p.name).join(' and ')}`,
-      detail: 'Only a person can supply this, and the result cannot be green without it.', tab: 'input', cta: 'Add it',
+      title: pending.length <= 3 ? `Record ${pending.map((p) => p.name).join(' and ')}` : `Record scores for the ${pending.length} items only a person can supply`,
+      detail: 'Only a person can supply these, and the result cannot be green without them.', tab: 'input', cta: 'Add them',
     });
   }
 

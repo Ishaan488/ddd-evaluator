@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../api';
 import { Chip } from '../components/Chip';
 import { DropZone } from '../components/DropZone';
@@ -13,12 +13,13 @@ export function NewEvaluationPage() {
   useDocumentTitle('New check');
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const handedOver = (useLocation().state as { scorecardFile?: File } | null)?.scorecardFile ?? null;
   const config = useResource(api.config, []);
   const projects = useResource(api.projects, []);
 
   const [projectName, setProjectName] = useState(params.get('project') ?? '');
   const [workbook, setWorkbook] = useState<File | null>(null);
-  const [scorecard, setScorecard] = useState<File | null>(null);
+  const [scorecard, setScorecard] = useState<File | null>(handedOver);
   const [sources, setSources] = useState('');
   const [instructions, setInstructions] = useState('');
   const [frozenWarning, setFrozenWarning] = useState(false);
@@ -33,7 +34,7 @@ export function NewEvaluationPage() {
   }, [scorecard]);
 
   const existing = useMemo(() => projects.data?.find((p) => p.name.toLowerCase() === projectName.trim().toLowerCase()), [projects.data, projectName]);
-  const workbookOk = hasExtension(workbook, ['.xlsx']);
+  const workbookOk = hasExtension(workbook, ['.xlsx', '.pdf']);
   const scorecardOk = hasExtension(scorecard, ['.xlsx', '.yaml', '.yml', '.json']);
   const ready = config.data?.ready ?? false;
   const canSubmit = Boolean(workbook && scorecard && workbookOk && scorecardOk && ready && !busy);
@@ -63,7 +64,7 @@ export function NewEvaluationPage() {
           </Link>
         }
       >
-        Add your Excel file and the scorecard it should be marked against. Nothing in your files is ever changed.
+        Add your Excel or PDF file and the scorecard it should be marked against. Nothing in your files is ever changed.
       </PageHeader>
 
       {error && <ErrorBanner message={error} />}
@@ -98,7 +99,7 @@ export function NewEvaluationPage() {
               </span>
             </div>
 
-            <DropZone label="Your Excel file" hint=".xlsx · the file to be checked" accept={['.xlsx']} file={workbook} onFile={setWorkbook} icon="upload" error={workbookOk ? null : 'This has to be an .xlsx file.'} />
+            <DropZone label="Your file" hint=".xlsx or .pdf · the file to be checked" accept={['.xlsx', '.pdf']} file={workbook} onFile={setWorkbook} icon="upload" error={workbookOk ? null : 'This has to be an .xlsx or .pdf file.'} />
             <DropZone label="Scorecard" hint=".xlsx, .yaml or .json · how it gets marked" accept={['.xlsx', '.yaml', '.yml', '.json']} file={scorecard} onFile={setScorecard} icon="list" error={scorecardOk ? null : 'Use an .xlsx, .yaml or .json scorecard.'} />
             <p className="field-hint template-hint">
               No scorecard yet?
@@ -106,6 +107,11 @@ export function NewEvaluationPage() {
                 <Icon name="download" size={13} /> Download the Excel template
               </a>
               <span className="faint">Fill it in, set frozen to yes, and upload it here.</span>
+            </p>
+            <p className="field-hint template-hint">
+              Scorecard in another layout?
+              <Link className="link-quiet" to="/import-scorecard"><Icon name="sheet" size={13} /> Import it as a draft</Link>
+              <span className="faint">You check it and approve it before it is used.</span>
             </p>
             {frozenWarning && (
               <div className="banner banner-amber">

@@ -24,6 +24,8 @@ export interface EffectiveDimension {
   pending: boolean;
   /** A person supplied a score that failed or passed the critical gate. */
   gate: CriticalGate['status'];
+  /** Is the score solid enough to force RED alone? Not when one examiner scored it, or the examiners could not agree. */
+  reliable: boolean;
 }
 
 export const CRITICAL_MINIMUM = 4;
@@ -51,7 +53,7 @@ export function effectiveDimensions(
     const base = { id: spec.id, name: spec.name, weight: spec.weight, critical: spec.critical };
 
     if (needsPerson) {
-      if (!person) return { ...base, counted: false, score: null, pending: true, gate: 'pending' };
+      if (!person) return { ...base, counted: false, score: null, pending: true, gate: 'pending', reliable: true };
       const scored = person.score !== null;
       return {
         ...base,
@@ -59,12 +61,14 @@ export function effectiveDimensions(
         score: person.score,
         pending: false,
         gate: !scored || person.score! >= CRITICAL_MINIMUM ? 'passed' : 'failed',
+        reliable: true,
       };
     }
 
     // Code and rater dimensions: an unscored one counts as 0, so a missing score can never help.
     const score = result?.status === 'scored' ? (result.consolidated ?? 0) : 0;
-    return { ...base, counted: true, score, pending: false, gate: score >= CRITICAL_MINIMUM ? 'passed' : 'failed' };
+    const reliable = result?.resolution !== 'single_rater' && result?.resolution !== 'lower_stands';
+    return { ...base, counted: true, score, pending: false, gate: score >= CRITICAL_MINIMUM ? 'passed' : 'failed', reliable };
   });
 }
 
@@ -90,7 +94,7 @@ export const blockingFindings = (findings: Finding[]): Finding[] => findings.fil
  *   Green  score >= accept, every critical gate passed, all human-only evidence supplied,
  *          and no HIGH-risk finding open
  *   Amber  score between refine and accept, or any critical gate below 4, or a HIGH finding
- *   Red    score below refine
+ *   Red    score below refine, or a critical gate at or below the scorecard's `red_at_or_below` line (when it sets one)
  */
 export function decide(scorecard: Scorecard, dimensions: EffectiveDimension[], blocking: Finding[] = []): AgentVerdict {
   const score = weightedScore(dimensions);
@@ -103,10 +107,17 @@ export function decide(scorecard: Scorecard, dimensions: EffectiveDimension[], b
   const shown = floor1(score);
   const reasons: string[] = [];
 
+  const floor = scorecard.redAtOrBelow;
+  const belowLine = floor === undefined ? [] : failed.filter((g) => g.score !== null && g.score <= floor);
+  const solid = new Set(dimensions.filter((d) => d.reliable).map((d) => d.id));
+  const collapsed = belowLine.filter((g) => solid.has(g.dimensionId));
+  const shaky = belowLine.filter((g) => !solid.has(g.dimensionId));
+
   let decision: Decision;
-  if (score < refine) {
+  if (score < refine || collapsed.length > 0) {
     decision = 'red';
-    reasons.push(`Score ${shown} is below ${refine}.`);
+    if (score < refine) reasons.push(`Score ${shown} is below ${refine}.`);
+    for (const gate of collapsed) reasons.push(`Critical gate ${gate.dimensionId} (${gate.name}) scored ${gate.score}, at or below the red line of ${floor}.`);
   } else if (score >= accept && failed.length === 0 && pending.length === 0 && blocking.length === 0) {
     decision = 'green';
     reasons.push(`Score ${shown} is at or above ${accept}, every critical gate passed, no high-risk finding is open, and no human-only evidence is outstanding.`);
@@ -115,6 +126,9 @@ export function decide(scorecard: Scorecard, dimensions: EffectiveDimension[], b
     if (score < accept) reasons.push(`Score ${shown} is below ${accept}.`);
     for (const gate of failed) {
       reasons.push(`Critical gate ${gate.dimensionId} (${gate.name}) scored ${gate.score ?? 0}, below ${CRITICAL_MINIMUM}.`);
+    }
+    for (const gate of shaky) {
+      reasons.push(`Critical gate ${gate.dimensionId} (${gate.name}) is at the red line of ${floor}, but only one examiner scored it or they could not agree, so it cannot force RED on its own. A person should check it.`);
     }
     if (blocking.length > 0) {
       const shownIds = blocking.slice(0, 5).map((f) => f.id).join(', ');

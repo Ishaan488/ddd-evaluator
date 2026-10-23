@@ -7,6 +7,7 @@
 import '../src/env.js';
 import { parseArgs } from 'node:util';
 import { loadAppConfig } from '../src/config.js';
+import { bedrockBaseId } from '../src/llm/bedrock.js';
 import { listModelsRequest, parseModelList } from '../src/llm/catalog.js';
 import { createProviderFactory } from '../src/llm/registry.js';
 import { inspectRoster } from '../src/llm/roster.js';
@@ -45,10 +46,10 @@ for (const name of providersUsed) {
   try {
     const response = await fetch(request.url, { headers: request.headers, signal: AbortSignal.timeout(20_000) });
     if (!response.ok) throw new Error(`HTTP ${response.status} ${(await response.text()).slice(0, 200)}`);
-    const offered = parseModelList(spec.type as 'openai-compatible' | 'gemini', await response.json());
+    const offered = parseModelList(spec.type as 'openai-compatible' | 'gemini' | 'bedrock', await response.json());
     for (const m of entries.filter((x) => x.provider === name)) {
-      const found = offered.includes(m.model);
-      console.log(`  ${found ? '✓' : '✗'} ${m.model}${found ? '' : '  <- not offered. Pick one below and edit server/config/models.json'}`);
+      const found = offered.includes(spec.type === 'bedrock' ? bedrockBaseId(m.model) : m.model);
+      console.log(`  ${found ? '✓' : '✗'} ${m.model}${found ? '' : '  <- not offered. Pick one below and edit the models file'}`);
       if (!found) failed = true;
     }
     console.log(`  all: ${offered.sort().join(', ')}`);

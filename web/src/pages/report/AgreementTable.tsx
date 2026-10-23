@@ -25,7 +25,7 @@ export function AgreementTable({ report }: { report: Report }) {
         <tbody>
           {report.agreement.map((a) => (
             <tr key={a.dimensionId}>
-              <td><span className="mono faint">{a.dimensionId}</span> {a.name}</td>
+              <td>{a.name}</td>
               {raters.map((r) => (
                 <td key={r.id} className="num mono">{a.scores[r.id] ?? '—'}</td>
               ))}

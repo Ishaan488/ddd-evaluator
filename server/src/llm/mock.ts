@@ -64,10 +64,35 @@ export class MockProvider implements LlmProvider {
     if (this.delayMs > 0) await new Promise((resolve) => setTimeout(resolve, this.delayMs));
     if (request.model.endsWith('-down')) throw new LlmError(`${request.model} is unavailable`, 400);
 
-    const text = request.system.includes('You are the consolidator')
-      ? this.consolidate(request)
-      : this.rate(request);
+    const text = request.system.includes('SCORECARD_IMPORT')
+      ? this.importDraft()
+      : request.system.includes('You are the consolidator')
+        ? this.consolidate(request)
+        : this.rate(request);
     return { text, inputTokens: Math.ceil(request.user.length / 4), outputTokens: Math.ceil(text.length / 4) };
+  }
+
+  /** A small fixed draft, so the import screen can be shown without a live model. */
+  private importDraft(): string {
+    const anchors = { '0': 'Absent or contradicted.', '1': 'Mentioned only.', '2': 'A major element is missing.', '3': 'A gap that could change an outcome.', '4': 'A minor gap that cannot change an outcome.', '5': 'Fully specified.' };
+    return JSON.stringify({
+      scorecard: {
+        id: 'SC-MOCK-IMPORT',
+        name: 'Imported sample (mock model)',
+        version: '1.0',
+        judges: 'D1 schema design',
+        thresholds: { accept: 90, refine: 75 },
+        red_at_or_below: 2,
+        artifact: { sheets: [{ name: 'Sheet1', header_row: 1 }], context_sheets: [] },
+        dimensions: [
+          { id: 'G01', name: 'Purpose and scope are clear', weight: 40, critical: false, measured_by: 'raters', measure: 'Does the opening say what the document is for?', anchors, reads: ['Page 1-2'] },
+          { id: 'G02', name: 'Definitions are complete', weight: 40, critical: true, measured_by: 'raters', measure: 'Is every field defined?', anchors },
+          { id: 'G03', name: 'Author understanding', weight: 20, critical: false, measured_by: 'human', needs: 'A scored interview with the author.' },
+        ],
+      },
+      uncertain: ['This is the mock model: the draft is a fixed sample and does not come from your file.'],
+      adjustments: [],
+    });
   }
 
   private rate(request: LlmRequest): string {

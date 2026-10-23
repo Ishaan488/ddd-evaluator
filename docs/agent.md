@@ -44,6 +44,7 @@ server/src/agent/
 │
 ├── rater.ts            stage 3: runs one rater, keeps only evidence-backed claims
 ├── fallback.ts           backup models: same participant, same family, tried in order
+├── repeats.ts            the median of one rater's repeated runs of a section, and how far they differed
 ├── sectionPlanner.ts     groups rater questions into sections by the sheets and columns they `reads`
 ├── prompt.ts             builds what the raters are sent, one prompt per section (shared with the pre-submit check)
 ├── preflight.ts          before running: can enough raters take this prompt?
@@ -95,7 +96,7 @@ Dimensions marked `measured_by: code` are not given to a model. A built-in check
 "how many of these rows are right?", for example *"168 of 169 nodes have a definition"*. The pass ratio is turned
 into a 0-5 score by the dimension's `bands`. Nine checks exist (see the
 [scorecard reference](scorecard-reference.md#built-in-checks)): `max_value`, `column_filled`, `unique`,
-`any_filled`, `list_refs_resolve`, `lists_referenced`, `values_in_list`, `value_not_in`, `row_count_at_least`.
+`any_filled`, `list_refs_resolve`, `lists_referenced`, `values_in_list`, `value_not_in`, `row_count_at_least`, and the text checks `text_terms_absent`, `text_terms_present`, `text_ids_valid` (they count lines of text, so they work on a PDF).
 
 Why code and not the raters: a model counting cells is slower, costs money, and can be wrong; code is exact,
 free and repeatable. This is the one place the build goes beyond the PDF's wording (see

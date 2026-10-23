@@ -1,5 +1,6 @@
 flowchart TD
   S["Weighted score<br/>sum(weight x score) / sum(weights counted) x 100<br/>unscored dimensions count as 0<br/>human-only items count only once a person scores them"]
+  QR{"scorecard has a red line and a<br/>must-pass score at or below it,<br/>agreed by 2+ examiners?"}
   Q1{"score below<br/>refine (75)?"}
   RED["RED<br/>the structure or understanding is wrong"]
   Q2{"score at or above<br/>accept (90)?"}
@@ -7,10 +8,12 @@ flowchart TD
   QH{"no HIGH-risk finding<br/>left open?"}
   Q4{"all human-only evidence<br/>supplied by a person?"}
   GRN["GREEN"]
-  AMB["AMBER<br/>reasons listed: score, failed gates,<br/>high-risk findings, missing evidence"]
+  AMB["AMBER<br/>reasons listed: score, failed gates, shaky red-line<br/>scores (a person checks), high-risk findings,<br/>missing evidence"]
   OVR["A person may override up or down<br/>a written reason is required<br/>the agent's own verdict stays on record"]
 
-  S --> Q1
+  S --> QR
+  QR -- yes --> RED
+  QR -- no --> Q1
   Q1 -- yes --> RED
   Q1 -- no --> Q2
   Q2 -- no --> AMB
@@ -33,5 +36,5 @@ flowchart TD
   class GRN good
   class AMB warn
   class RED bad
-  class Q1,Q2,Q3,QH,Q4 gate
+  class QR,Q1,Q2,Q3,QH,Q4 gate
   class S,OVR agent

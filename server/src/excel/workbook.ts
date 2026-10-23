@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { UserError } from '../util/errors.js';
+import { isPdf, readPdf } from './pdfReader.js';
 import { readXlsx, type RawGrid } from './xlsxReader.js';
 
 export interface Header {
@@ -54,7 +55,7 @@ export class WorkbookModel {
 
   static async load(source: string | Buffer): Promise<WorkbookModel> {
     const bytes = typeof source === 'string' ? await readFile(source) : source;
-    return new WorkbookModel(readXlsx(bytes));
+    return new WorkbookModel(isPdf(bytes) ? await readPdf(bytes) : readXlsx(bytes));
   }
 
   sheetNames(): string[] {

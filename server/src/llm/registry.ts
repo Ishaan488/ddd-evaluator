@@ -1,5 +1,6 @@
 import type { ModelsConfig } from '../config.js';
 import { UserError } from '../util/errors.js';
+import { BedrockProvider, bedrockRegion } from './bedrock.js';
 import { GeminiProvider } from './gemini.js';
 import type { HttpOptions } from './http.js';
 import { MockProvider } from './mock.js';
@@ -38,10 +39,10 @@ export function createProviderFactory(models: ModelsConfig, options: FactoryOpti
     } else {
       const key = spec.keyEnv ? env[spec.keyEnv] : undefined;
       if (!key) throw new UserError(`Provider "${name}" has no API key (${spec.keyEnv}).`, 409);
-      provider =
-        spec.type === 'gemini'
-          ? new GeminiProvider(key, http, spec.baseUrl)
-          : new OpenAiCompatibleProvider(name, spec.baseUrl ?? '', key, http);
+      if (spec.type === 'gemini') provider = new GeminiProvider(key, http, spec.baseUrl);
+      else if (spec.type === 'bedrock') {
+        provider = new BedrockProvider(key, http, spec.baseUrl ?? `https://bedrock-runtime.${bedrockRegion(spec.region, env)}.amazonaws.com`);
+      } else provider = new OpenAiCompatibleProvider(name, spec.baseUrl ?? '', key, http);
     }
     cache.set(name, provider);
     return provider;

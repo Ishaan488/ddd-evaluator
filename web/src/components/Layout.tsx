@@ -37,6 +37,9 @@ function Sidebar() {
         <NavLink to="/" end className="nav-link">
           <Icon name="folder" /> Projects
         </NavLink>
+        <NavLink to="/import-scorecard" className="nav-link">
+          <Icon name="sheet" /> Import a scorecard
+        </NavLink>
         <NavLink to="/models" className="nav-link">
           <Icon name="cpu" /> Evaluator models
         </NavLink>

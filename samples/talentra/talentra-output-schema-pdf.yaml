@@ -1,0 +1,111 @@
+# Step 2 · Output Schema Definition v3.2, evaluated from its PDF.
+#
+# DRAFT FOR APPROVAL. Written by the assistant to show how a PDF is scored; the questions, weights and anchors are
+# a proposal, and a mentor must approve them before they are relied on.
+#
+# A PDF has one "sheet" per page, named "Page 1", "Page 2" and so on, so a dimension's `reads` names a page range
+# ("Page 7-9"). Each range is its own section, which keeps every prompt small enough for a free-tier model.
+# Only rater questions can be asked of a PDF: the counting checks need Excel columns.
+# This draft looks at a few pages for each question, not all 170, so treat the result as a sample read.
+
+scorecard:
+  id: SC-TALENTRA-STEP2-PDF
+  name: Talentra Step 2 output schema (PDF)
+  version: "0.1"
+  judges: D1 schema design · Step 2 output schema
+  step: "02"
+  frozen: true
+  approval: "Draft by the assistant, pending mentor approval"
+  thresholds: { accept: 90, refine: 75 }
+
+  artifact:
+    sheets:
+      - name: Page 1-170
+        header_row: 1
+
+  dimensions:
+    - id: P01
+      name: Purpose, scope and size are stated up front
+      weight: 15
+      measured_by: raters
+      reads: ["Page 1-3"]
+      measure: Does the opening say what the document defines, who uses it, what risks it controls and what is out of scope?
+      anchors:
+        5: Purpose, users, risks, size and non-goals are all stated plainly and agree with each other.
+        4: One of these is thin or slightly inconsistent.
+        3: Two are missing or vague.
+        2: Most of the opening is vague.
+        1: The opening does not say what the document is for.
+        0: There is no opening.
+
+    - id: P02
+      name: The architecture is explained so a newcomer can follow it
+      weight: 15
+      measured_by: raters
+      reads: ["Page 7-9"]
+      measure: Are the trees, links, decision model, scopes and conventions explained clearly enough to build from?
+      anchors:
+        5: Every concept is defined once, used consistently and shown with an example.
+        4: Nearly all are clear; a few need the author.
+        3: Several concepts are used before they are defined.
+        2: Many are ambiguous.
+        1: The architecture cannot be followed.
+        0: Missing.
+
+    - id: P03
+      name: Field definitions are complete and unambiguous
+      weight: 25
+      critical: true
+      measured_by: raters
+      reads: ["Page 12-14"]
+      measure: Does each field say what to record, in what form, with its attributes filled in and no contradiction?
+      anchors:
+        5: Every field has a clear definition and all required attributes, and no two fields contradict.
+        4: A few fields have a thin definition or a missing attribute.
+        3: Several fields are unclear or incomplete.
+        2: Many fields are ambiguous or contradict each other.
+        1: Most fields cannot be filled in unaided.
+        0: Unusable.
+      return_to: Define
+
+    - id: P04
+      name: Allowed values are defined and owned
+      weight: 15
+      measured_by: raters
+      reads: ["Page 121-123"]
+      measure: Is every value set explained, with each code defined and each set owned?
+      anchors:
+        5: Every set has an owner and every code a meaning.
+        4: A few codes or owners are missing.
+        3: Several sets lack an owner or definitions.
+        2: Many are undefined.
+        1: Mostly undefined.
+        0: Missing.
+
+    - id: P05
+      name: Fitness tests and authorization scenarios can be run
+      weight: 15
+      measured_by: raters
+      reads: ["Page 165-166"]
+      measure: Is each test or scenario specific enough that two people would run it the same way and agree on pass or fail?
+      anchors:
+        5: Every test has inputs, expected result and a clear pass rule.
+        4: A few lack an expected result.
+        3: Several are too vague to run.
+        2: Most are vague.
+        1: They cannot be run.
+        0: Missing.
+
+    - id: P06
+      name: Open questions are listed with owners
+      weight: 15
+      measured_by: raters
+      reads: ["Page 170"]
+      measure: Is each open question stated clearly, with an owner and what it blocks?
+      anchors:
+        5: Every question has an owner, a decision needed and what it blocks.
+        4: A few lack an owner or the blocked item.
+        3: Several are vague.
+        2: Most are vague.
+        1: They are only a list of topics.
+        0: Missing.

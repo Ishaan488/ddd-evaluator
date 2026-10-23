@@ -97,6 +97,7 @@ export function statusOf(d: DimensionResult): { label: string; tone: 'green' | '
   if (d.status === 'not_measurable') return { label: 'Needs your input', tone: 'amber', help: 'Only a person can supply this.' };
   if (d.flagged) return { label: 'Needs a second look', tone: 'amber', help: RESOLUTION[d.resolution].text };
   if (d.measuredBy === 'code') return { label: 'Checked', tone: 'blue', help: METHOD.code.blurb };
+  if (d.confidence === 'shaky') return { label: 'Scores differ', tone: 'amber', help: 'The examiners, or repeat runs by the same examiner, gave scores more than a point apart. Treat this score with care.' };
   return { label: 'Examiners agreed', tone: 'accent', help: RESOLUTION[d.resolution].text };
 }
 

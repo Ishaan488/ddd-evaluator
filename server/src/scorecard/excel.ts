@@ -56,7 +56,7 @@ function requireColumns(table: Table, columns: string[]): void {
   const missing = columns.filter((c) => !have.has(norm(c)));
   if (missing.length > 0) {
     throw new UserError(
-      `Sheet "${table.sheet}" needs a column titled "${missing[0]}" in row 1. Columns found: ${table.headers.map((h) => h.title).join(', ') || '(none)'}.`,
+      `Sheet "${table.sheet}" needs a column titled "${missing[0]}" in row 1. Columns found: ${table.headers.map((h) => h.title).join(', ') || '(none)'}. If this scorecard is in another layout, use "Import a scorecard" in the sidebar to convert it into a draft you can approve.`,
     );
   }
 }
@@ -202,6 +202,7 @@ export async function readExcelScorecard(buffer: Buffer, filename: string): Prom
         accept: setting('accept') === '' ? 90 : Number(setting('accept')),
         refine: setting('refine') === '' ? 75 : Number(setting('refine')),
       },
+      ...(setting('red_at_or_below') !== '' ? { red_at_or_below: Number(setting('red_at_or_below')) } : {}),
       artifact: { sheets, context_sheets: context },
       dimensions,
     },
@@ -294,6 +295,7 @@ export async function scorecardToWorkbook(scorecard: Scorecard): Promise<Buffer>
     ['approval', scorecard.approval ?? ''],
     ['accept', scorecard.thresholds.accept],
     ['refine', scorecard.thresholds.refine],
+    ...(scorecard.redAtOrBelow !== undefined ? ([['red_at_or_below', scorecard.redAtOrBelow]] as Array<[string, string | number]>) : []),
   ];
   rows.forEach(([key, value]) => {
     const row = settings.addRow([key, value]);

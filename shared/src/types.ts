@@ -10,6 +10,7 @@ export type Severity = 'HIGH' | 'MEDIUM' | 'LOW';
 export type MeasuredBy = 'code' | 'raters' | 'human';
 export type Gate = 'D1' | 'D3';
 export type ReturnTo = 'Discover' | 'Define' | 'Generate' | 'Analyse' | 'Validate' | 'Refine';
+export type Confidence = 'steady' | 'shaky' | 'single';
 export type DimensionStatus = 'scored' | 'unscored' | 'not_measurable';
 export type RunStatus = 'queued' | 'running' | 'done' | 'failed';
 export type RunStage =
@@ -87,6 +88,8 @@ export interface Scorecard {
   frozen: boolean;
   approval?: string;
   thresholds: { accept: number; refine: number };
+  /** Optional: a critical dimension scoring at or below this forces RED, whatever the total. */
+  redAtOrBelow?: number;
   artifact: { sheets: SheetSpec[]; context: SheetSpec[] };
   dimensions: DimensionSpec[];
 }
@@ -147,6 +150,8 @@ export interface DimensionResult {
   spread: number | null;
   resolution: Resolution;
   flagged: boolean;
+  /** How far to trust a judged score: steady (examiners and repeat runs agree), shaky (they differ), single (only one examiner could score it). */
+  confidence?: Confidence;
   rationale: string;
   evidence: Evidence[];
   /** Code dimensions only. */

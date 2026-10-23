@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { CellRef } from '@ddd/shared';
 import type { Table, TableRow } from '../../excel/workbook.js';
 import { UserError } from '../../util/errors.js';
+import { TEXT_CHECKS } from './textChecks.js';
 import type { CheckContext, CheckDefinition, CheckResult } from './types.js';
 
 /**
@@ -278,4 +279,5 @@ export const CHECKS: Record<string, CheckDefinition> = {
   values_in_list: valuesInList,
   value_not_in: valueNotIn,
   row_count_at_least: rowCountAtLeast,
+  ...TEXT_CHECKS,
 };

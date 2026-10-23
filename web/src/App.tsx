@@ -1,5 +1,6 @@
 import { Link, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
+import { ImportScorecardPage } from './pages/ImportScorecardPage';
 import { ModelsPage } from './pages/ModelsPage';
 import { NewEvaluationPage } from './pages/NewEvaluationPage';
 import { ProjectPage } from './pages/ProjectPage';
@@ -21,6 +22,7 @@ export function App() {
       <Route element={<Layout />}>
         <Route index element={<ProjectsPage />} />
         <Route path="new" element={<NewEvaluationPage />} />
+        <Route path="import-scorecard" element={<ImportScorecardPage />} />
         <Route path="models" element={<ModelsPage />} />
         <Route path="projects/:id" element={<ProjectPage />} />
         <Route path="runs/:id" element={<RunPage />} />

@@ -2,7 +2,7 @@ import type { Strength } from '@ddd/shared';
 import { CellChip } from '../../components/Chip';
 
 /** Grouped by criterion, with repeats removed, so ten lines about one thing read as one. */
-export function StrengthsList({ strengths }: { strengths: Strength[] }) {
+export function StrengthsList({ strengths, names = {} }: { strengths: Strength[]; names?: Record<string, string> }) {
   if (strengths.length === 0) {
     return <p className="muted">No strengths were recorded with supporting evidence.</p>;
   }
@@ -16,7 +16,10 @@ export function StrengthsList({ strengths }: { strengths: Strength[] }) {
     <div className="strength-groups">
       {[...groups].map(([id, list]) => (
         <section key={id} className="strength-group">
-          <h3><span className="faint">{id}</span> <span className="chip chip-green">{list.length}</span></h3>
+          <h3>
+            {names[id] ?? id}
+            {list.length > 1 && <span className="chip chip-green chip-sm">{list.length} strengths</span>}
+          </h3>
           <ul className="strengths">
             {list.map((s, i) => (
               <li key={i}>

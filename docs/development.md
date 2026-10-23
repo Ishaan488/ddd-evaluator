@@ -88,7 +88,7 @@ Use `MOCK_LLM=1` for everything that does not need a real model.
 
 ## Testing
 
-The suite is built around the PDF's rules. 172 server tests and 3 dashboard tests, all deterministic.
+The suite is built around the PDF's rules. 225 server tests and 3 dashboard tests, all deterministic.
 
 | File | What it proves |
 |---|---|
