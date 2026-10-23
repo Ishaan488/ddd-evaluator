@@ -1,0 +1,39 @@
+# Evaluator configuration.
+#
+# Models go to the Google Gemini API with ONE key (GEMINI_API_KEY in .env). Free-tier quotas are per
+# Google Cloud project, not per key, so extra keys from the same project add nothing.
+#
+# The model ids below come from Google's models page and have NOT been called from this project yet.
+# Check them against your own key before a real run:
+#     python -m ddd_evaluator models
+# and edit any id the key cannot use. Free tiers change often; see aistudio.google.com/rate-limit.
+#
+# Independence (slide 10 asks for three model FAMILIES): with Gemini only, the three raters are three
+# different models of one family. The report says so and marks the verdict advisory. To restore
+# independence later, add a second provider below (for example type: openai_compatible for Groq or Mistral)
+# and point one rater at it with `provider:`.
+
+provider: gemini            # default for any rater or consolidator that does not name one
+
+providers:
+  gemini:
+    type: gemini
+    api_key_env: GEMINI_API_KEY
+  # mistral:                # example of a second family, left off until you have a key
+  #   type: openai_compatible
+  #   base_url: https://api.mistral.ai/v1
+  #   api_key_env: MISTRAL_API_KEY
+
+temperature: 0
+max_tokens: 32000           # includes the model's thinking tokens
+timeout_s: 600
+retries: 4                  # on a per-minute 429 the client waits as long as Google asks, then tries again
+parallel_raters: false      # one after another keeps a free tier inside its per-minute limits
+
+raters:
+  - {id: A, family: google, model: gemini-3.8-flash}
+  - {id: B, family: google, model: gemini-3.6-flash}
+  - {id: C, family: google, model: gemini-3.5-flash-lite}
+
+consolidator:
+  model: gemini-3.8-flash

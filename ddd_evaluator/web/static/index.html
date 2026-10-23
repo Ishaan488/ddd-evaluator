@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DDD Evaluator</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#14213d;--muted:#5b6475;--line:#e3e6ec;--accent:#1d4ed8;--accent-ink:#fff;
+--green:#15803d;--green-bg:#dcfce7;--amber:#b45309;--amber-bg:#fef3c7;--red:#b91c1c;--red-bg:#fee2e2;--na:#475569;--na-bg:#e2e8f0}
+@media (prefers-color-scheme:dark){:root{--bg:#0f172a;--card:#1e293b;--ink:#e5e9f2;--muted:#9aa5b8;--line:#334155;--accent:#60a5fa;--accent-ink:#0b1220;
+--green:#4ade80;--green-bg:#14532d;--amber:#fbbf24;--amber-bg:#4a3a0a;--red:#f87171;--red-bg:#5a1a1a;--na:#cbd5e1;--na-bg:#334155}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:980px;margin:0 auto;padding:24px 16px 72px}
+h1{font-size:1.5rem;margin:0}h2{font-size:1.05rem;margin:0 0 4px;display:flex;align-items:center;gap:10px}
+.sub{color:var(--muted);margin:2px 0 22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:0 0 16px}
+.num{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:.8rem;font-weight:700}
+.hint{color:var(--muted);font-size:.88rem;margin:0 0 12px}
+.drop{display:block;border:2px dashed var(--line);border-radius:10px;padding:22px;text-align:center;cursor:pointer;color:var(--muted);transition:.15s}
+.drop:hover,.drop.over{border-color:var(--accent);color:var(--ink);background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.drop.has{border-style:solid;color:var(--ink)}.drop input{display:none}
+.drop strong{display:block;color:var(--ink)}
+.row{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+label.check{display:flex;gap:8px;align-items:flex-start;margin:10px 0 0}
+label.check input{margin-top:4px}
+select,input[type=text],input[type=number]{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+button{font:inherit;font-weight:600;border:0;border-radius:8px;padding:9px 18px;cursor:pointer;background:var(--accent);color:var(--accent-ink)}
+button:disabled{opacity:.45;cursor:not-allowed}
+a{color:var(--accent)}
+a.btn{display:inline-block;font-weight:600;border:1px solid var(--line);border-radius:8px;padding:6px 12px;text-decoration:none;color:var(--accent)}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-size:.74rem;text-transform:uppercase;letter-spacing:.04em}
+tr.group td{background:var(--bg);font-weight:700;color:var(--muted);font-size:.78rem;text-transform:uppercase}
+tr.dim{cursor:pointer}tr.dim:hover td{background:color-mix(in srgb,var(--accent) 5%,transparent)}
+tr.more td{background:var(--bg);font-size:.86rem}
+tr.more ol{margin:6px 0 0;padding-left:0;list-style:none}tr.more li{margin:2px 0}
+.chip{display:inline-block;border-radius:999px;padding:1px 9px;font-weight:600;font-size:.78rem;white-space:nowrap}
+.green{background:var(--green-bg);color:var(--green)}.amber{background:var(--amber-bg);color:var(--amber)}
+.red{background:var(--red-bg);color:var(--red)}.na{background:var(--na-bg);color:var(--na)}
+.code{background:#dbeafe;color:#1e40af}.llm{background:#ede9fe;color:#5b21b6}.human{background:#fce7f3;color:#9d174d}
+@media (prefers-color-scheme:dark){.code{background:#1e3a8a;color:#bfdbfe}.llm{background:#4c1d95;color:#ddd6fe}.human{background:#831843;color:#fbcfe8}}
+.wrap{overflow-x:auto}.muted{color:var(--muted)}.mono{font-family:ui-monospace,Consolas,monospace;font-size:.82rem}
+.note{border-left:4px solid var(--amber);background:var(--amber-bg);color:var(--amber);padding:8px 12px;border-radius:6px;margin:10px 0 0;font-size:.88rem}
+.note.info{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--ink)}
+.err{border-left:4px solid var(--red);background:var(--red-bg);color:var(--red);padding:8px 12px;border-radius:6px;margin:12px 0 0}
+.stages{list-style:none;padding:0;margin:14px 0 0}
+.stages li{display:flex;gap:10px;align-items:center;padding:3px 0;color:var(--muted)}
+.stages li.now{color:var(--ink);font-weight:600}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--line);flex:none}
+.stages li.done .dot{background:var(--green)}.stages li.now .dot{background:var(--accent);animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.3}}
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:24px;border-radius:10px;padding:14px 20px;margin:0 0 14px;border:2px solid}
+.banner.green{border-color:var(--green)}.banner.amber{border-color:var(--amber)}.banner.red{border-color:var(--red)}
+.banner .big{font-size:1.8rem;font-weight:800;line-height:1}
+iframe{width:100%;border:1px solid var(--line);border-radius:10px;min-height:600px;background:var(--bg)}
+details summary{cursor:pointer;color:var(--accent);font-size:.9rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:10px}
+.grid fieldset{border:1px solid var(--line);border-radius:8px;padding:10px;margin:0}
+.grid legend{font-weight:600;font-size:.85rem;padding:0 6px}
+.grid input{width:100%;margin:3px 0}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <h1>DDD Evaluator</h1>
+  <p class="sub">Level 1 evaluator agent: three independent raters score your schema, a consolidator reconciles them, and code decides green, amber or red.</p>
+
+  <section class="card" id="s1">
+    <h2><span class="num">1</span>Schema to evaluate</h2>
+    <p class="hint">Upload the schema workbook (Tree, Schema register and Allowed values sheets) or a .md, .sql or .txt file.</p>
+    <label class="drop" id="dropArtifact"><input type="file" id="artifact" accept=".xlsx,.xlsm,.md,.txt,.sql,.json,.yaml,.yml,.csv">
+      <strong id="artifactName">Drop the schema here, or click to choose</strong><span id="artifactSize">.xlsx .md .sql .txt, up to 30 MB</span></label>
+    <label class="check" id="wbSourcesRow" hidden><input type="checkbox" id="wbSources" checked>
+      <span>Also use this workbook's <b>Requirements</b> and <b>NFR register</b> sheets as the FR and NFR sources.</span></label>
+    <div style="height:14px"></div>
+    <p class="hint" style="margin-bottom:6px"><b>Source documents</b> (optional): the problem statement or docket, and anything else the raters should check the schema against.</p>
+    <label class="drop" id="dropSources"><input type="file" id="sources" multiple accept=".pdf,.xlsx,.xlsm,.md,.txt,.json,.yaml,.yml,.csv">
+      <strong id="sourcesName">Drop the docket here, or click to choose</strong><span>.pdf .md .txt .xlsx</span></label>
+  </section>
+
+  <section class="card" id="s2">
+    <h2><span class="num">2</span>Scorecard</h2>
+    <p class="hint">Upload the scorecard as an Excel file. Not sure of the format? <a href="/api/scorecard-template">Download the template</a>.</p>
+    <label class="drop" id="dropCard"><input type="file" id="cardFile" accept=".xlsx,.xlsm">
+      <strong id="cardName">Drop the scorecard here, or click to choose</strong><span>.xlsx, frozen, weights adding up to 100</span></label>
+    <div class="err" id="cardError" hidden></div>
+    <div id="cardView" hidden>
+      <div class="row" style="margin:14px 0 4px"><span class="muted" id="scorecardMeta"></span></div>
+      <p class="hint" id="scorecardJudges"></p>
+      <div class="wrap"><table id="scorecardTable"><thead><tr><th>ID</th><th>Dimension</th><th>Scored by</th><th>Weight</th><th></th></tr></thead><tbody></tbody></table></div>
+      <p class="hint" style="margin:10px 0 0">Click a row to see what it measures and what each score from 0 to 5 means.
+        Green needs <span id="tGreen">90</span> or more, every critical dimension at <span id="tCrit">4</span> or more, and no high-risk finding. Red is below <span id="tAmber">75</span>.</p>
+    </div>
+  </section>
+
+  <section class="card" id="s3">
+    <h2><span class="num">3</span>Run</h2>
+    <div id="keyState"></div>
+    <div class="row" style="margin-top:8px">
+      <label class="check" style="margin:0"><input type="radio" name="mode" value="real" id="modeReal"><span>Real evaluation</span></label>
+      <label class="check" style="margin:0"><input type="radio" name="mode" value="mock" id="modeMock"><span>Dry run, no model calls (scores are placeholders)</span></label>
+    </div>
+    <div id="realBox">
+      <div class="note info" id="familyNote" hidden></div>
+      <label class="check"><input type="checkbox" id="consent"><span id="consentText">I confirm these documents may be sent to the model provider.</span></label>
+    </div>
+    <details style="margin-top:12px"><summary>Add human evidence (optional)</summary>
+      <p class="hint" style="margin-top:8px">Two dimensions can only be scored by a person. Until they are supplied, a green stays provisional.</p>
+      <div class="grid">
+        <fieldset><legend>H01 Author understanding</legend>
+          <input type="number" min="0" max="5" id="h01_score" placeholder="Score 0 to 5"><input type="text" id="h01_by" placeholder="Scored by"><input type="text" id="h01_note" placeholder="Note"></fieldset>
+        <fieldset><legend>H02 Independent review</legend>
+          <input type="number" min="0" max="5" id="h02_score" placeholder="Score 0 to 5"><input type="text" id="h02_by" placeholder="Scored by"><input type="text" id="h02_note" placeholder="Note"></fieldset>
+      </div>
+    </details>
+    <div class="row" style="margin-top:16px"><button id="run" disabled>Evaluate</button><span class="muted" id="runHint">Choose a schema first.</span></div>
+    <ul class="stages" id="stages" hidden></ul>
+    <div class="err" id="error" hidden></div>
+  </section>
+
+  <section class="card" id="s4" hidden>
+    <h2><span class="num">4</span>Report</h2>
+    <div class="banner" id="banner"></div>
+    <div class="row" style="margin-bottom:12px" id="links"></div>
+    <iframe id="frame" title="Evaluation report"></iframe>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let status = null, card = null, polling = null;
+
+const el = (tag, props = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) { if (k === 'class') n.className = v; else n.setAttribute(k, v); }
+  for (const k of kids) n.append(k);
+  return n;
+};
+const chip = (text, cls) => el('span', { class: 'chip ' + cls }, text);
+const size = (b) => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
+
+// ---------- drop zones
+function wireDrop(zone, input, onChange) {
+  ['dragenter', 'dragover'].forEach(e => zone.addEventListener(e, ev => { ev.preventDefault(); zone.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(e => zone.addEventListener(e, ev => { ev.preventDefault(); zone.classList.remove('over'); }));
+  zone.addEventListener('drop', ev => { input.files = ev.dataTransfer.files; onChange(); });
+  input.addEventListener('change', onChange);
+}
+wireDrop($('dropArtifact'), $('artifact'), () => {
+  const f = $('artifact').files[0];
+  $('dropArtifact').classList.toggle('has', !!f);
+  $('artifactName').textContent = f ? f.name : 'Drop the schema here, or click to choose';
+  $('artifactSize').textContent = f ? size(f.size) : '.xlsx .md .sql .txt, up to 30 MB';
+  $('wbSourcesRow').hidden = !(f && /\.xlsm?$/i.test(f.name));
+  refreshRun();
+});
+wireDrop($('dropSources'), $('sources'), () => {
+  const fs = [...$('sources').files];
+  $('dropSources').classList.toggle('has', fs.length > 0);
+  $('sourcesName').textContent = fs.length ? fs.map(f => f.name).join(', ') : 'Drop the docket here, or click to choose';
+});
+
+// ---------- scorecard
+const GROUP_ORDER = [];
+function renderScorecard(c) {
+  card = c;
+  $('scorecardMeta').textContent = `${c.id} v${c.version} · ${c.dimensions.length} dimensions · ` +
+    `code ${c.weights.code} + LLM ${c.weights.llm} + human ${c.weights.human} = 100 · ${c.frozen ? 'frozen' : 'NOT frozen'}`;
+  $('scorecardJudges').textContent = 'Judges: ' + c.judges;
+  $('tGreen').textContent = c.thresholds.green; $('tAmber').textContent = c.thresholds.amber; $('tCrit').textContent = c.thresholds.critical_min;
+  const body = $('scorecardTable').tBodies[0]; body.replaceChildren();
+  let group = null;
+  for (const d of c.dimensions) {
+    if (d.group !== group) { group = d.group; body.append(el('tr', { class: 'group' }, el('td', { colspan: 5 }, group))); }
+    const more = el('tr', { class: 'more', hidden: '' }, el('td', { colspan: 5 }));
+    const cell = more.firstChild;
+    cell.append(el('div', {}, el('b', {}, 'Measures: '), d.measure));
+    if (d.traces_to.length) cell.append(el('div', { class: 'muted' }, 'Comes from: ' + d.traces_to.join('; ')));
+    const ol = el('ol'); for (let n = 5; n >= 0; n--) ol.append(el('li', {}, el('b', {}, n + ' '), d.anchors[n]));
+    cell.append(ol);
+    const row = el('tr', { class: 'dim', tabindex: 0 },
+      el('td', { class: 'mono' }, d.id), el('td', {}, d.name),
+      el('td', {}, chip({ code: 'code checks', llm: 'LLM raters', human: 'a person' }[d.evaluator], d.evaluator)),
+      el('td', {}, String(d.weight)), el('td', {}, d.critical ? chip('critical', 'amber') : ''));
+    const toggle = () => { more.hidden = !more.hidden; };
+    row.addEventListener('click', toggle); row.addEventListener('keydown', e => { if (e.key === 'Enter') toggle(); });
+    body.append(row, more);
+  }
+}
+async function uploadScorecard() {
+  const f = $('cardFile').files[0];
+  card = null; $('cardView').hidden = true; $('cardError').hidden = true;
+  $('dropCard').classList.toggle('has', !!f);
+  $('cardName').textContent = f ? f.name : 'Drop the scorecard here, or click to choose';
+  if (!f) { refreshRun(); return; }
+  const fd = new FormData(); fd.append('scorecard', f);
+  const res = await fetch('/api/scorecard', { method: 'POST', body: fd });
+  const data = await res.json();
+  if (!res.ok) {
+    const e = $('cardError'); e.hidden = false; e.replaceChildren(el('b', {}, data.detail || 'Could not read the scorecard.'));
+    if (data.problems) { const ul = el('ul'); data.problems.forEach(p => ul.append(el('li', {}, p))); e.append(ul); }
+  } else {
+    renderScorecard(data); $('cardView').hidden = false;
+    if (!data.frozen) { const e = $('cardError'); e.hidden = false; e.textContent = 'This scorecard is not frozen. Set Frozen to yes in its Scorecard sheet and upload it again.'; card = null; }
+  }
+  refreshRun();
+}
+wireDrop($('dropCard'), $('cardFile'), uploadScorecard);
+
+// ---------- status and run controls
+function refreshRun() {
+  const hasFile = $('artifact').files.length > 0;
+  const real = $('modeReal').checked;
+  $('realBox').hidden = !real;
+  $('run').disabled = !hasFile || !card || (real && (!status.key_ready || !$('consent').checked)) || !!polling;
+  $('runHint').textContent = !hasFile ? 'Choose a schema first.'
+    : !card ? 'Upload a valid, frozen scorecard.'
+    : real && !status.key_ready ? 'No API key found. Use the dry run, or add the key to .env and restart.'
+    : real && !$('consent').checked ? 'Tick the confirmation box to send the documents.' : '';
+}
+async function init() {
+  status = await (await fetch('/api/status')).json();
+  const ks = $('keyState');
+  ks.append(status.key_ready
+    ? chip('API key found for ' + status.providers_needed.join(', '), 'green')
+    : chip('No API key found for ' + status.providers_needed.join(', ') + '. Add it to .env and restart.', 'amber'));
+  ks.append(el('span', { class: 'muted' }, '  Raters: ' + status.raters.map(r => `${r.id} ${r.model}`).join(' · ') + ' · Consolidator: ' + status.consolidator.model));
+  if (status.family_note) { $('familyNote').hidden = false; $('familyNote').textContent = status.family_note; }
+  $('consentText').textContent = 'I confirm these documents may be sent to the model provider. ' + status.external_notice.replace('Send only what client terms and data protection law allow.', '').trim();
+  (status.key_ready ? $('modeReal') : $('modeMock')).checked = true;
+  document.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener('change', refreshRun));
+  $('consent').addEventListener('change', refreshRun);
+  refreshRun();
+}
+
+// ---------- run and poll
+function showStages(job) {
+  const ul = $('stages'); ul.hidden = false; ul.replaceChildren();
+  job.stages.forEach((s, i) => {
+    const last = i === job.stages.length - 1 && job.status === 'running';
+    ul.append(el('li', { class: last ? 'now' : 'done' }, el('span', { class: 'dot' }), `${s.text}`, el('span', { class: 'muted' }, `  ${s.at}s`)));
+  });
+}
+async function poll(id) {
+  const job = await (await fetch('/api/jobs/' + id)).json();
+  showStages(job);
+  if (job.status === 'done') { clearInterval(polling); polling = null; showReport(job.result); refreshRun(); }
+  else if (job.status === 'error') { clearInterval(polling); polling = null; showError(job.error); refreshRun(); }
+}
+function showError(msg) { const e = $('error'); e.hidden = false; e.textContent = msg; }
+$('run').addEventListener('click', async () => {
+  $('error').hidden = true; $('s4').hidden = true;
+  const fd = new FormData();
+  fd.append('artifact', $('artifact').files[0]);
+  for (const f of $('sources').files) fd.append('sources', f);
+  fd.append('scorecard_id', card.scorecard_id);
+  fd.append('mock', $('modeMock').checked);
+  fd.append('confirm_external', $('consent').checked);
+  fd.append('use_workbook_sources', $('wbSources').checked);
+  for (const k of ['h01_score', 'h01_by', 'h01_note', 'h02_score', 'h02_by', 'h02_note']) if ($(k).value !== '') fd.append(k, $(k).value);
+  $('run').disabled = true; polling = 1;
+  const res = await fetch('/api/evaluate', { method: 'POST', body: fd });
+  const data = await res.json();
+  if (!res.ok) { polling = null; showError(typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)); refreshRun(); return; }
+  polling = setInterval(() => poll(data.job_id), 1500); poll(data.job_id);
+});
+
+// ---------- report
+function showReport(r) {
+  const cls = { GREEN: 'green', AMBER: 'amber', RED: 'red' }[r.decision];
+  const label = r.decision === 'GREEN' && !r.final ? 'GREEN (provisional)' : r.decision;
+  const b = $('banner'); b.className = 'banner ' + cls; b.replaceChildren(
+    el('div', {}, el('div', { class: 'big ' + cls, style: 'background:none' }, label), el('div', { class: 'muted' }, 'Decision')),
+    el('div', {}, el('div', { class: 'big', style: 'font-size:1.4rem' }, r.weighted_score + ' / 100'), el('div', { class: 'muted' }, 'Weighted score')),
+    el('div', {}, el('div', { class: 'big', style: 'font-size:1.4rem' }, String(r.high)), el('div', { class: 'muted' }, 'High-risk findings')));
+  if (r.mock) b.append(chip('dry run: placeholder scores', 'amber'));
+  const base = '/api/runs/' + r.run_id;
+  $('links').replaceChildren(
+    el('a', { class: 'btn', href: base + '/html', target: '_blank', rel: 'noopener' }, 'Open full page'),
+    el('a', { class: 'btn', href: base + '/html?download=true' }, 'Download HTML'),
+    el('a', { class: 'btn', href: base + '/md?download=true' }, 'Download Markdown'),
+    el('a', { class: 'btn', href: base + '/json?download=true' }, 'Download JSON'));
+  const f = $('frame'); f.onload = () => { try { f.style.height = (f.contentDocument.documentElement.scrollHeight + 20) + 'px'; } catch (e) {} };
+  f.src = base + '/html';
+  $('s4').hidden = false; $('s4').scrollIntoView({ behavior: 'smooth' });
+}
+init().catch(e => showError('Could not load: ' + e));
+</script>
+</body>
+</html>
